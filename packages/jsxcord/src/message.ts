@@ -110,7 +110,7 @@ export function hydrateMessages(messages: Message[], container: Container) {
             })
 
             collector.on('collect', (interaction) => {
-              if (component.customId === null) {
+              if (component.customId === null || interaction.customId !== component.customId) {
                 return
               }
 
