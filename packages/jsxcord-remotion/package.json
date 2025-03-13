@@ -1,0 +1,28 @@
+{
+  "name": "@repo/jsxcord-remotion",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Remotion for JSXcord",
+  "author": "PitsPower",
+  "exports": {
+    "./components": {
+      "types": "./src/components.tsx",
+      "default": "./dist/components.js"
+    },
+    "./root": {
+      "types": "./src/root.tsx",
+      "default": "./dist/root.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.265",
+    "@remotion/renderer": "4.0.265",
+    "react": "18.3.0",
+    "remotion": "4.0.265",
+    "zod": "^3.24.2"
+  }
+}

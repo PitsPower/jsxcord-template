@@ -1,0 +1,24 @@
+{
+  "name": "jsxcord-template",
+  "private": true,
+  "packageManager": "bun@1.2.2",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^4.2.1",
+    "prettier": "^3.5.0",
+    "turbo": "^2.4.2",
+    "typescript": "5.7.3"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

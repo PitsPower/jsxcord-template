@@ -1,0 +1,25 @@
+{
+  "name": "test-bot",
+  "type": "module",
+  "module": "src/index.tsx",
+  "scripts": {
+    "dev": "bun --watch src/index.tsx"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "canvas": "^3.1.0",
+    "cheerio": "^1.0.0",
+    "konva": "^9.3.18",
+    "openai": "^4.85.1",
+    "opusscript": "^0.1.1",
+    "react-konva": "18",
+    "sharp": "^0.33.5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@repo/jsxcord": "workspace:*",
+    "@types/bun": "^1.2.2"
+  }
+}
