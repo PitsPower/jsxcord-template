@@ -205,7 +205,7 @@ export function bot(
         }
 
         if (messages[i] !== undefined && !isMessageOptionsEmpty(options)) {
-          await interaction.editReply({
+          messages[i] = await interaction.editReply({
             ...options,
             flags: [],
           })
