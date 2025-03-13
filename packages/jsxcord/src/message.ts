@@ -31,6 +31,7 @@ export function createMessageOptions(container: Container): MessageCreateOptions
   let currentMessageStage = 0
   let currentOptions: MessageCreateOptions = {
     content: '',
+    components: [],
   }
   const result = [currentOptions]
 
@@ -54,6 +55,7 @@ export function createMessageOptions(container: Container): MessageCreateOptions
         currentMessageStage = 0
         currentOptions = {
           content: '',
+          components: [],
         }
         result.push(currentOptions)
       }

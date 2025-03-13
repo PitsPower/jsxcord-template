@@ -13,7 +13,7 @@ import type { ChatInputCommandInteraction, Interaction, Message, MessageCreateOp
 import type { PropsWithChildren, ReactNode } from 'react'
 import type { AutocompleteFunction, ZodCommand } from './zod.js'
 import { createAudioPlayer, joinVoiceChannel } from '@discordjs/voice'
-import { Client, GatewayIntentBits, GuildMember, REST, Routes, SlashCommandBuilder } from 'discord.js'
+import { Client, GatewayIntentBits, GuildMember, InteractionContextType, REST, Routes, SlashCommandBuilder } from 'discord.js'
 import Queue from 'promise-queue'
 import { createContext, Suspense, useState } from 'react'
 import { z } from 'zod'
@@ -84,6 +84,11 @@ export function bot(
           const builder = new SlashCommandBuilder()
             .setName(name)
             .setDescription('No description')
+            .setContexts(
+              InteractionContextType.Guild,
+              InteractionContextType.BotDM,
+              InteractionContextType.PrivateChannel,
+            )
 
           if (command instanceof z.ZodObject) {
             for (const [key, value] of Object.entries(command.shape as object)) {
@@ -92,8 +97,7 @@ export function bot(
           }
 
           return builder.toJSON()
-        },
-        ),
+        }),
       },
     )
   })
@@ -201,7 +205,7 @@ export function bot(
         }
 
         if (messages[i] !== undefined && !isMessageOptionsEmpty(options)) {
-          await messages[i].edit({
+          await interaction.editReply({
             ...options,
             flags: [],
           })
