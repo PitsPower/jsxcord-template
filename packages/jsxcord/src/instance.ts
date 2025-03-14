@@ -11,6 +11,7 @@ import { ButtonStyle, ComponentType, escapeMarkdown } from 'discord.js'
 import { v4 as uuidv4 } from 'uuid'
 
 type JsxcordInstanceType =
+  | 'ActionRow'
   | 'Answer'
   | 'Base'
   | 'Button'
@@ -94,6 +95,37 @@ export class EmptyInstance extends BaseInstance<null> {
   }
 }
 
+export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstance)[] }> {
+  static type: JsxcordInstanceType = 'ActionRow'
+
+  static createInstance() {
+    return new ActionRowInstance({
+      components: [],
+    })
+  }
+
+  appendChild(child: InstanceOrText) {
+    if (child.getType() !== 'Button') {
+      throw new Error('ActionRow can only contain Button components')
+    }
+
+    this.data.components.push(enforceType(child, ButtonInstance))
+  }
+
+  addToOptions(options: MessageCreateOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.ActionRow,
+        components: this.data.components.map(c => ({
+          ...c.data,
+          label: textInstancesToString(c.data.texts),
+        })),
+      },
+    ]
+  }
+}
+
 type InternalPollAnswerData = Omit<PollAnswerData, 'text'> & { texts: TextInstance[] }
 
 export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
@@ -117,12 +149,24 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
   }
 }
 
+type ButtonStyleString = 'primary' | 'secondary' | 'success' | 'danger'
+
+const buttonStyleMap: Record<string, Exclude<ButtonStyle, ButtonStyle.Link>> = {
+  primary: ButtonStyle.Primary,
+  secondary: ButtonStyle.Secondary,
+  success: ButtonStyle.Success,
+  danger: ButtonStyle.Danger,
+}
+
 export interface ButtonProps {
+  disabled?: boolean
+  emoji?: string
+  style?: ButtonStyleString
   onClick?: (interaction: ButtonInteraction) => void
 }
 
 export class ButtonInstance extends BaseInstance<
-  Omit<InteractionButtonComponentData, 'label'> & ButtonProps & { texts: TextInstance[] }
+  Omit<InteractionButtonComponentData, 'label'> & Omit<ButtonProps, 'style'> & { texts: TextInstance[] }
 > {
   static type: JsxcordInstanceType = 'Button'
 
@@ -130,8 +174,10 @@ export class ButtonInstance extends BaseInstance<
     return new ButtonInstance({
       type: ComponentType.Button,
       texts: [],
-      style: ButtonStyle.Primary,
+      style: buttonStyleMap[props.style ?? 'secondary'],
       customId: uuidv4(),
+      disabled: props.disabled ?? false,
+      emoji: props.emoji,
       onClick: props.onClick,
     })
   }
@@ -467,6 +513,7 @@ export class WhitelistInstance extends BaseInstance<{
 }
 
 export type Instance =
+  | ActionRowInstance
   | AnswerInstance
   | ButtonInstance
   | EmbedInstance

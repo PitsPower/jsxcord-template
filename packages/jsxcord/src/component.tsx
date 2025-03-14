@@ -10,6 +10,7 @@ import { createContext, createElement, useContext, useEffect, useState } from 'r
 import { streamResource } from './audio.js'
 import { AudioContext, useInteraction } from './index.js'
 import {
+  ActionRowInstance,
   AnswerInstance,
   ButtonInstance,
   EmbedInstance,
@@ -46,6 +47,7 @@ function createComponent<P, I extends Instance>(
 
 const Thumbnail = createComponent(ThumbnailInstance)
 
+export const ActionRow = createComponent(ActionRowInstance)
 export const Answer = createComponent(AnswerInstance)
 export const Button = createComponent(ButtonInstance)
 

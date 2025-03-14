@@ -3,6 +3,7 @@ import type { Container } from './container.js'
 import type { Instance, InstanceOrText } from './instance.js'
 import { ComponentType } from 'discord.js'
 import {
+  ActionRowInstance,
   ButtonInstance,
   EmbedInstance,
   EmptyInstance,
@@ -24,7 +25,7 @@ const MESSAGE_PARTS = [
   [FileInstance, ImageInstance],
   [EmbedInstance],
   [PollInstance],
-  [ButtonInstance],
+  [ActionRowInstance, ButtonInstance],
 ]
 
 export function createMessageOptions(container: Container): MessageCreateOptions[] {
