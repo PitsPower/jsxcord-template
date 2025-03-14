@@ -100,6 +100,15 @@ export class EmptyInstance extends BaseInstance<null> {
   }
 }
 
+type ButtonStyleString = 'primary' | 'secondary' | 'success' | 'danger'
+
+const buttonStyleMap: Record<string, Exclude<ButtonStyle, ButtonStyle.Link>> = {
+  primary: ButtonStyle.Primary,
+  secondary: ButtonStyle.Secondary,
+  success: ButtonStyle.Success,
+  danger: ButtonStyle.Danger,
+}
+
 export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance[] }> {
   static type: JsxcordInstanceType = 'ActionRow'
 
@@ -139,6 +148,7 @@ export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance
       components: chunk.map(c => ({
         ...c.data,
         label: textInstancesToString(c.data.texts),
+        style: buttonStyleMap[c.data.style ?? 'secondary'],
       })),
     }))
 
@@ -177,15 +187,6 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
       'Attempted to add `AnswerInstance` to message options. Ensure all `Answer` components are in a `Poll` component.',
     )
   }
-}
-
-type ButtonStyleString = 'primary' | 'secondary' | 'success' | 'danger'
-
-const buttonStyleMap: Record<string, Exclude<ButtonStyle, ButtonStyle.Link>> = {
-  primary: ButtonStyle.Primary,
-  secondary: ButtonStyle.Secondary,
-  success: ButtonStyle.Success,
-  danger: ButtonStyle.Danger,
 }
 
 export interface ButtonProps {
