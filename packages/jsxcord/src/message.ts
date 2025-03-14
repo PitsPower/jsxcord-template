@@ -33,6 +33,8 @@ export function createMessageOptions(container: Container): MessageCreateOptions
   let currentOptions: MessageCreateOptions = {
     content: '',
     components: [],
+    embeds: [],
+    files: [],
   }
   const result = [currentOptions]
 
@@ -57,6 +59,8 @@ export function createMessageOptions(container: Container): MessageCreateOptions
         currentOptions = {
           content: '',
           components: [],
+          embeds: [],
+          files: [],
         }
         result.push(currentOptions)
       }
