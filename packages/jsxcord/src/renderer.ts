@@ -5,13 +5,15 @@ import type { Instance } from './instance.js'
 import Reconciler from 'react-reconciler'
 import { EmptyInstance, TextInstance } from './instance.js'
 
+const SuspenseInstance = Symbol('SuspenseInstance')
+
 const reconciler = Reconciler<
   'node',
   NodeProps<Record<string, unknown>, Instance>,
   Container,
   Instance | EmptyInstance,
   TextInstance,
-  unknown,
+  typeof SuspenseInstance,
   unknown,
   unknown,
   unknown,
@@ -143,8 +145,11 @@ const reconciler = Reconciler<
     container.children = container.children.filter(c => c !== child)
   },
 
-  removeChild(_parentInstance, _child) {
-    throw new Error('Not implemented.')
+  removeChild(parentInstance, child) {
+    if (child === SuspenseInstance) {
+      throw new Error('Cannot remove SuspenseInstance')
+    }
+    parentInstance.removeChild(child)
   },
 
   commitUpdate(instance, updatePayload) {

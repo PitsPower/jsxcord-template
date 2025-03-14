@@ -70,6 +70,7 @@ abstract class BaseInstance<Data> {
 
   constructor(public data: Data) {}
   abstract appendChild(child: InstanceOrText): void
+  abstract removeChild(child: InstanceOrText): void
   abstract addToOptions(options: MessageCreateOptions): void
 }
 
@@ -87,6 +88,10 @@ export class EmptyInstance extends BaseInstance<null> {
   }
 
   appendChild() {
+
+  }
+
+  removeChild() {
 
   }
 
@@ -110,6 +115,13 @@ export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance
     }
 
     this.data.components.push(enforceType(child, ButtonInstance))
+  }
+
+  removeChild(child: InstanceOrText) {
+    const index = this.data.components.indexOf(enforceType(child, ButtonInstance))
+    if (index !== -1) {
+      this.data.components.splice(index, 1)
+    }
   }
 
   addToOptions(options: MessageCreateOptions) {
@@ -151,6 +163,13 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
 
   appendChild(child: InstanceOrText) {
     this.data.texts.push(enforceType(child, TextInstance))
+  }
+
+  removeChild(child: InstanceOrText) {
+    const index = this.data.texts.indexOf(enforceType(child, TextInstance))
+    if (index !== -1) {
+      this.data.texts.splice(index, 1)
+    }
   }
 
   addToOptions() {
@@ -195,6 +214,13 @@ export class ButtonInstance extends BaseInstance<
 
   appendChild(child: InstanceOrText) {
     this.data.texts.push(enforceType(child, TextInstance))
+  }
+
+  removeChild(child: InstanceOrText) {
+    const index = this.data.texts.indexOf(enforceType(child, TextInstance))
+    if (index !== -1) {
+      this.data.texts.splice(index, 1)
+    }
   }
 
   addToOptions(options: MessageCreateOptions) {
@@ -254,6 +280,34 @@ export class EmbedInstance extends BaseInstance<EmbedData> {
       this.data = {
         ...this.data,
         fields: [...(this.data.fields ?? []), enforcedChild],
+      }
+    }
+  }
+
+  removeChild(child: InstanceOrText) {
+    const enforcedChild = enforceType(
+      child,
+      [ImageInstance, EmptyInstance, ThumbnailInstance, FieldInstance],
+    )
+
+    if (enforcedChild instanceof ImageInstance) {
+      this.data = {
+        ...this.data,
+        image: undefined,
+      }
+    }
+
+    if (enforcedChild instanceof ThumbnailInstance) {
+      this.data = {
+        ...this.data,
+        thumbnail: undefined,
+      }
+    }
+
+    if (enforcedChild instanceof FieldInstance) {
+      this.data = {
+        ...this.data,
+        fields: this.data.fields?.filter(field => field !== enforcedChild),
       }
     }
   }
@@ -326,6 +380,10 @@ export class FieldInstance extends BaseInstance<FieldProps & { children: (Instan
     this.data.children.push(child)
   }
 
+  removeChild(child: InstanceOrText) {
+    this.data.children = this.data.children.filter(c => c !== child)
+  }
+
   addToOptions() {
     throw new Error(
       'Attempted to add `FieldInstance` to message options. Ensure all `Field` components are in an `Embed` component.',
@@ -347,6 +405,10 @@ export class FileInstance extends BaseInstance<FileProps> {
 
   appendChild() {
     throw new Error('Cannot append a child to `File`.')
+  }
+
+  removeChild() {
+    throw new Error('Cannot remove a child from `File`.')
   }
 
   addToOptions(options: MessageCreateOptions) {
@@ -375,6 +437,10 @@ export class ImageInstance extends BaseInstance<ImageProps> {
     throw new Error('Cannot append a child to `Image`.')
   }
 
+  removeChild() {
+    throw new Error('Cannot remove a child from `Image`.')
+  }
+
   addToOptions(options: MessageCreateOptions) {
     options.files = [
       ...(options.files ?? []),
@@ -396,6 +462,10 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
 
   appendChild(child: InstanceOrText) {
     this.data.texts.push(enforceType(child, TextInstance))
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.texts = this.data.texts.filter(text => text !== child)
   }
 
   addToOptions(options: MessageCreateOptions) {
@@ -432,6 +502,11 @@ export class PollInstance extends BaseInstance<
     ]
   }
 
+  removeChild(child: InstanceOrText) {
+    const enforcedChild = enforceType(child, AnswerInstance)
+    this.data.answers = this.data.answers.filter(answer => answer !== enforcedChild.data)
+  }
+
   addToOptions(options: MessageCreateOptions) {
     options.poll = {
       ...this.data,
@@ -448,6 +523,10 @@ export class TextInstance extends BaseInstance<string> {
 
   appendChild() {
     throw new Error('Attempted to append child to `TextInstance`. This is a bug!')
+  }
+
+  removeChild() {
+    throw new Error('Attempted to remove child from `TextInstance`. This is a bug!')
   }
 
   addToOptions(options: MessageCreateOptions) {
@@ -490,6 +569,20 @@ export class ThumbnailInstance extends BaseInstance<ThumbnailData> {
     }
   }
 
+  removeChild(child: InstanceOrText) {
+    const enforcedChild = enforceType(
+      child,
+      [ImageInstance, EmptyInstance],
+    )
+
+    if (enforcedChild instanceof ImageInstance) {
+      this.data = {
+        ...this.data,
+        image: undefined,
+      }
+    }
+  }
+
   addToOptions() {
 
   }
@@ -514,6 +607,10 @@ export class WhitelistInstance extends BaseInstance<{
 
   appendChild(child: InstanceOrText) {
     this.data.children = [...this.data.children, child]
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.children = this.data.children.filter(c => c !== child)
   }
 
   addToOptions(options: MessageCreateOptions) {
