@@ -113,6 +113,10 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
   }
 
   addToOptions(options: MessageCreateOptions) {
+    if (this.data.components.length === 0) {
+      return
+    }
+
     options.components = [
       ...(options.components ?? []),
       {
