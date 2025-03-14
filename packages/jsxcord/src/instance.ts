@@ -114,7 +114,7 @@ const buttonStyleMap: Record<string, Exclude<ButtonStyle, ButtonStyle.Link>> = {
   danger: ButtonStyle.Danger,
 }
 
-export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance[] }> {
+export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstance | SelectInstance)[] }> {
   static type: JsxcordInstanceType = 'ActionRow'
 
   static createInstance() {
@@ -124,15 +124,15 @@ export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance
   }
 
   appendChild(child: InstanceOrText) {
-    if (child.getType() !== 'Button') {
-      throw new Error('ActionRow can only contain Button components')
+    if (child.getType() !== 'Button' && child.getType() !== 'Select') {
+      throw new Error('ActionRow can only contain Button and Select components')
     }
 
-    this.data.components.push(enforceType(child, ButtonInstance))
+    this.data.components.push(enforceType(child, [ButtonInstance, SelectInstance]))
   }
 
   removeChild(child: InstanceOrText) {
-    const index = this.data.components.indexOf(enforceType(child, ButtonInstance))
+    const index = this.data.components.indexOf(enforceType(child, [ButtonInstance, SelectInstance]))
     if (index !== -1) {
       this.data.components.splice(index, 1)
     }
@@ -143,19 +143,38 @@ export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance
       return
     }
 
-    const componentChunks: ButtonInstance[][] = []
-    for (let i = 0; i < this.data.components.length; i += 5) {
-      componentChunks.push(this.data.components.slice(i, i + 5))
+    const componentChunks: (ButtonInstance | SelectInstance)[][] = []
+    let currentChunk: (ButtonInstance | SelectInstance)[] = []
+
+    for (const component of this.data.components) {
+      if (component instanceof SelectInstance) {
+        // If we have existing buttons, push them as a chunk
+        if (currentChunk.length > 0) {
+          componentChunks.push([...currentChunk])
+          currentChunk = []
+        }
+        // Each select goes in its own row
+        componentChunks.push([component])
+      }
+      else {
+        // For buttons, add to current chunk
+        currentChunk.push(component)
+        // If we've reached 5 buttons, push as a chunk and start new
+        if (currentChunk.length === 5) {
+          componentChunks.push([...currentChunk])
+          currentChunk = []
+        }
+      }
+    }
+
+    // Push any remaining buttons
+    if (currentChunk.length > 0) {
+      componentChunks.push(currentChunk)
     }
 
     const actionRows = componentChunks.map(chunk => ({
       type: ComponentType.ActionRow,
-      components: chunk.map(c => ({
-        ...c.data,
-        emoji: typeof c.data.emoji === 'string' ? c.data.emoji : c.data.emoji?.asText(),
-        label: textInstancesToString(c.data.texts),
-        style: buttonStyleMap[c.data.style ?? 'secondary'],
-      })),
+      components: chunk.map(c => c.toComponentJSON()),
     }))
 
     options.components = [
@@ -237,17 +256,21 @@ export class ButtonInstance extends BaseInstance<
     }
   }
 
+  toComponentJSON() {
+    return {
+      ...this.data,
+      emoji: typeof this.data.emoji === 'string' ? this.data.emoji : this.data.emoji?.asText(),
+      label: textInstancesToString(this.data.texts),
+      style: buttonStyleMap[this.data.style ?? 'secondary'],
+    }
+  }
+
   addToOptions(options: MessageCreateOptions) {
     options.components = [
       ...(options.components ?? []),
       {
         type: ComponentType.ActionRow,
-        components: [{
-          ...this.data,
-          emoji: typeof this.data.emoji === 'string' ? this.data.emoji : this.data.emoji?.asText(),
-          label: textInstancesToString(this.data.texts),
-          style: buttonStyleMap[this.data.style ?? 'secondary'],
-        }],
+        components: [this.toComponentJSON()],
       },
     ]
   }
@@ -613,20 +636,24 @@ export class SelectInstance extends BaseInstance<
     this.data.options = this.data.options.filter(option => option !== child)
   }
 
+  toComponentJSON() {
+    return {
+      ...this.data,
+      options: this.data.options.map(option => ({
+        ...option.data,
+        emoji: typeof option.data.emoji === 'string' ? option.data.emoji : option.data.emoji?.asText(),
+        label: textInstancesToString(option.data.label),
+        value: option.data.value ?? textInstancesToString(option.data.label),
+      })),
+    }
+  }
+
   addToOptions(options: MessageCreateOptions) {
     options.components = [
       ...(options.components ?? []),
       {
         type: ComponentType.ActionRow,
-        components: [{
-          ...this.data,
-          options: this.data.options.map(option => ({
-            ...option.data,
-            emoji: typeof option.data.emoji === 'string' ? option.data.emoji : option.data.emoji?.asText(),
-            label: textInstancesToString(option.data.label),
-            value: option.data.value ?? textInstancesToString(option.data.label),
-          })),
-        }],
+        components: [this.toComponentJSON()],
       },
     ]
   }
