@@ -11,6 +11,7 @@ import {
   ImageInstance,
   MarkdownInstance,
   PollInstance,
+  SelectInstance,
   TextInstance,
   WhitelistInstance,
 } from './instance.js'
@@ -25,7 +26,7 @@ const MESSAGE_PARTS = [
   [FileInstance, ImageInstance],
   [EmbedInstance],
   [PollInstance],
-  [ActionRowInstance, ButtonInstance],
+  [ActionRowInstance, ButtonInstance, SelectInstance],
 ]
 
 export function createMessageOptions(container: Container): MessageCreateOptions[] {
@@ -75,13 +76,14 @@ interface InstanceWithWhitelist<I extends Instance> {
   users?: string[]
 }
 
-function findButtonWithId(
+function findComponentWithId<I extends ButtonInstance | SelectInstance>(
+  Class: new (...args: any[]) => I,
   children: InstanceOrText[],
   id: string,
   users?: string[],
-): InstanceWithWhitelist<ButtonInstance> | undefined {
+): InstanceWithWhitelist<I> | undefined {
   for (const child of children) {
-    if (child instanceof ButtonInstance && child.data.customId === id) {
+    if (child instanceof Class && child.data.customId === id) {
       return {
         instance: child,
         users,
@@ -89,16 +91,16 @@ function findButtonWithId(
     }
 
     if (child instanceof ActionRowInstance) {
-      const button = findButtonWithId(child.data.components, id, users)
-      if (button !== undefined) {
-        return button
+      const component = findComponentWithId(Class, child.data.components, id, users)
+      if (component !== undefined) {
+        return component
       }
     }
 
     if (child instanceof WhitelistInstance) {
-      const button = findButtonWithId(child.data.children, id, child.data.users)
-      if (button !== undefined) {
-        return button
+      const component = findComponentWithId(Class, child.data.children, id, child.data.users)
+      if (component !== undefined) {
+        return component
       }
     }
   }
@@ -126,7 +128,7 @@ export function hydrateMessages(messages: Message[], container: Container) {
                 return
               }
 
-              const button = findButtonWithId(container.children, component.customId)
+              const button = findComponentWithId(ButtonInstance, container.children, component.customId)
               const onClick = button?.instance.data.onClick
               const allowedUsers = button?.users
 
@@ -146,7 +148,37 @@ export function hydrateMessages(messages: Message[], container: Container) {
             break
           }
 
-          case ComponentType.StringSelect: { throw new Error('Not implemented yet: ComponentType.StringSelect case') }
+          case ComponentType.StringSelect: {
+            const collector = message.createMessageComponentCollector({
+              componentType: ComponentType.StringSelect,
+            })
+
+            collector.on('collect', (interaction) => {
+              if (component.customId === null || interaction.customId !== component.customId) {
+                return
+              }
+
+              const select = findComponentWithId(SelectInstance, container.children, component.customId)
+              const onSelect = select?.instance.data.onSelect
+              const allowedUsers = select?.users
+
+              if (
+                onSelect === undefined
+                || (allowedUsers !== undefined && !allowedUsers.includes(interaction.user.id))
+              ) {
+                return
+              }
+
+              void interaction.deferUpdate()
+
+              onSelect(interaction.values[0], interaction)
+            })
+
+            container.hydratedIds.push(component.customId)
+
+            break
+          }
+
           case ComponentType.UserSelect: { throw new Error('Not implemented yet: ComponentType.UserSelect case') }
           case ComponentType.RoleSelect: { throw new Error('Not implemented yet: ComponentType.RoleSelect case') }
           case ComponentType.MentionableSelect: { throw new Error('Not implemented yet: ComponentType.MentionableSelect case') }

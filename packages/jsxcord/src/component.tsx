@@ -18,7 +18,9 @@ import {
   FileInstance,
   ImageInstance,
   MarkdownInstance,
+  OptionInstance,
   PollInstance,
+  SelectInstance,
   ThumbnailInstance,
   WhitelistInstance,
 } from './instance.js'
@@ -106,7 +108,9 @@ export function Img(props: Parameters<typeof RawImage>[0]) {
  * ```
  */
 export const Markdown = createComponent(MarkdownInstance)
+export const Option = createComponent(OptionInstance)
 export const Poll = createComponent(PollInstance)
+export const Select = createComponent(SelectInstance)
 
 function createMarkdownComponent<Props>(func: (input: string, props: Props) => string) {
   return (props: PropsWithChildren<Props>) => {

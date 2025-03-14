@@ -5,6 +5,9 @@ import type {
   MessageCreateOptions,
   PollAnswerData,
   PollData,
+  SelectMenuComponentOptionData,
+  StringSelectMenuComponentData,
+  StringSelectMenuInteraction,
 } from 'discord.js'
 import Color from 'color'
 import { ButtonStyle, ComponentType, escapeMarkdown } from 'discord.js'
@@ -21,7 +24,9 @@ type JsxcordInstanceType =
   | 'File'
   | 'Image'
   | 'Markdown'
+  | 'Option'
   | 'Poll'
+  | 'Select'
   | 'Text'
   | 'Thumbnail'
   | 'Whitelist'
@@ -479,6 +484,49 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
   }
 }
 
+type InternalSelectMenuComponentOptionData =
+  Omit<SelectMenuComponentOptionData, 'label' | 'value'> & {
+    label: TextInstance[]
+    value?: string
+  }
+
+interface OptionProps {
+  description?: string
+  default?: boolean
+  emoji?: string
+  value?: string
+}
+
+export class OptionInstance extends BaseInstance<
+  InternalSelectMenuComponentOptionData
+> {
+  static type: JsxcordInstanceType = 'Option'
+
+  static createInstance(props: OptionProps) {
+    return new OptionInstance({
+      description: props.description,
+      label: [],
+      default: props.default ?? false,
+      emoji: props.emoji,
+      value: props.value,
+    })
+  }
+
+  appendChild(child: InstanceOrText) {
+    this.data.label.push(enforceType(child, TextInstance))
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.label = this.data.label.filter(text => text !== child)
+  }
+
+  addToOptions() {
+    throw new Error(
+      'Attempted to add `OptionInstance` to message options. Ensure all `Option` components are in a `Select` component.',
+    )
+  }
+}
+
 export interface PollProps {
   question: string
 }
@@ -517,6 +565,52 @@ export class PollInstance extends BaseInstance<
         text: textInstancesToString(answer.texts),
       })),
     }
+  }
+}
+
+interface SelectProps {
+  placeholder?: string
+  onSelect?: (value: string, interaction: StringSelectMenuInteraction) => void
+}
+
+export class SelectInstance extends BaseInstance<
+  Omit<StringSelectMenuComponentData, 'options'> & SelectProps & { options: OptionInstance[] }
+> {
+  static type: JsxcordInstanceType = 'Select'
+
+  static createInstance(props: SelectProps) {
+    return new SelectInstance({
+      type: ComponentType.StringSelect,
+      options: [],
+      customId: uuidv4(),
+      placeholder: props.placeholder,
+      onSelect: props.onSelect,
+    })
+  }
+
+  appendChild(child: InstanceOrText) {
+    this.data.options.push(enforceType(child, OptionInstance))
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.options = this.data.options.filter(option => option !== child)
+  }
+
+  addToOptions(options: MessageCreateOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.ActionRow,
+        components: [{
+          ...this.data,
+          options: this.data.options.map(option => ({
+            ...option.data,
+            label: textInstancesToString(option.data.label),
+            value: option.data.value ?? textInstancesToString(option.data.label),
+          })),
+        }],
+      },
+    ]
   }
 }
 
@@ -632,7 +726,9 @@ export type Instance =
   | FieldInstance
   | ImageInstance
   | MarkdownInstance
+  | OptionInstance
   | PollInstance
+  | SelectInstance
   | ThumbnailInstance
   | WhitelistInstance
 export type InstanceOrText = Instance | TextInstance
