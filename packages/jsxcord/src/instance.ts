@@ -152,6 +152,7 @@ export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance
       type: ComponentType.ActionRow,
       components: chunk.map(c => ({
         ...c.data,
+        emoji: typeof c.data.emoji === 'string' ? c.data.emoji : c.data.emoji?.asText(),
         label: textInstancesToString(c.data.texts),
         style: buttonStyleMap[c.data.style ?? 'secondary'],
       })),
@@ -196,13 +197,13 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
 
 export interface ButtonProps {
   disabled?: boolean
-  emoji?: string
+  emoji?: string | MarkdownInstance
   style?: ButtonStyleString
   onClick?: (interaction: ButtonInteraction) => void
 }
 
 export class ButtonInstance extends BaseInstance<
-  Omit<InteractionButtonComponentData, 'label' | 'style'> & ButtonProps & { texts: TextInstance[] }
+  Omit<InteractionButtonComponentData, 'emoji' | 'label' | 'style'> & ButtonProps & { texts: TextInstance[] }
 > {
   static type: JsxcordInstanceType = 'Button'
 
@@ -219,7 +220,14 @@ export class ButtonInstance extends BaseInstance<
   }
 
   appendChild(child: InstanceOrText) {
-    this.data.texts.push(enforceType(child, TextInstance))
+    const enforcedChild = enforceType(child, [MarkdownInstance, TextInstance])
+
+    if (enforcedChild instanceof MarkdownInstance) {
+      this.data.emoji = enforcedChild
+    }
+    else {
+      this.data.texts.push(enforcedChild)
+    }
   }
 
   removeChild(child: InstanceOrText) {
@@ -236,6 +244,7 @@ export class ButtonInstance extends BaseInstance<
         type: ComponentType.ActionRow,
         components: [{
           ...this.data,
+          emoji: typeof this.data.emoji === 'string' ? this.data.emoji : this.data.emoji?.asText(),
           label: textInstancesToString(this.data.texts),
           style: buttonStyleMap[this.data.style ?? 'secondary'],
         }],
@@ -486,6 +495,7 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
 
 type InternalSelectMenuComponentOptionData =
   Omit<SelectMenuComponentOptionData, 'label' | 'value'> & {
+    emoji?: string | MarkdownInstance
     label: TextInstance[]
     value?: string
   }
@@ -513,7 +523,14 @@ export class OptionInstance extends BaseInstance<
   }
 
   appendChild(child: InstanceOrText) {
-    this.data.label.push(enforceType(child, TextInstance))
+    const enforcedChild = enforceType(child, [MarkdownInstance, TextInstance])
+
+    if (enforcedChild instanceof MarkdownInstance) {
+      this.data.emoji = enforcedChild
+    }
+    else {
+      this.data.label.push(enforcedChild)
+    }
   }
 
   removeChild(child: InstanceOrText) {
@@ -605,6 +622,7 @@ export class SelectInstance extends BaseInstance<
           ...this.data,
           options: this.data.options.map(option => ({
             ...option.data,
+            emoji: typeof option.data.emoji === 'string' ? option.data.emoji : option.data.emoji?.asText(),
             label: textInstancesToString(option.data.label),
             value: option.data.value ?? textInstancesToString(option.data.label),
           })),

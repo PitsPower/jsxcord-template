@@ -9,8 +9,8 @@
  */
 
 import type { ChatInputCommandInteraction, Interaction, Message, MessageCreateOptions } from 'discord.js'
-
 import type { PropsWithChildren, ReactNode } from 'react'
+import type { ManagedEmoji } from './emoji.js'
 import type { AutocompleteFunction, ZodCommand } from './zod.js'
 import { createAudioPlayer, joinVoiceChannel } from '@discordjs/voice'
 import { Client, GatewayIntentBits, GuildMember, InteractionContextType, REST, Routes, SlashCommandBuilder } from 'discord.js'
@@ -19,7 +19,7 @@ import { createContext, Suspense, useState } from 'react'
 import { z } from 'zod'
 import { Mixer } from './audio.js'
 import * as container from './container.js'
-
+import { createEmoji, createEmojisFromFolder, EmojiContext, ManagedEmojiSymbol } from './emoji.js'
 import { createMessageOptions, hydrateMessages, isMessageOptionsEmpty } from './message.js'
 import { MutationContext } from './mutation.js'
 import Renderer from './renderer.js'
@@ -31,6 +31,7 @@ export * from './component.js'
 export * from './hook.js'
 export * from './mutation.js'
 export * from './shared.js'
+export { createEmoji, createEmojisFromFolder }
 
 interface AudioContextData {
   mixer: Mixer
@@ -46,8 +47,12 @@ class VoiceChannelError extends Error {}
 
 const audioContextsPerGuild: Record<string, AudioContextData> = {}
 
+interface JsxcordClient<Ready extends boolean = boolean> extends Client<Ready> {
+  registerEmojis: (...emojis: (ManagedEmoji | Record<string, ManagedEmoji>)[]) => JsxcordClient<Ready>
+}
+
 /**
- * Creates a Discord.js `Client`.
+ * Creates a JSXcord `Client`.
  *
  * @param commands The bot's commands.
  *
@@ -57,7 +62,7 @@ const audioContextsPerGuild: Record<string, AudioContextData> = {}
  * - A {@link ZodCommand | `ZodCommand`}.
  * - A function that accepts a `ChatInputCommandInteraction`.
  *
- * @returns A Discord.js `Client`.
+ * @returns A JSXcord `Client`.
  *
  * @category Core
  */
@@ -68,11 +73,43 @@ export function bot(
     | ZodCommand<z.ZodRawShape, true>
     | ((interaction: ChatInputCommandInteraction) => Promise<void>)
   >,
-): Client {
+): JsxcordClient {
   const client = new Client({ intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildVoiceStates,
-  ] })
+  ] }) as JsxcordClient
+
+  // Maps emoji names to their Markdown representations
+  const emojiMap: Record<string, string> = {}
+
+  client.registerEmojis = (...emojis: (ManagedEmoji | Record<string, ManagedEmoji>)[]) => {
+    client.on('ready', async () => {
+      const allEmojis = await client.application?.emojis.fetch()
+
+      const emojisArray = emojis
+        .map(emoji =>
+          emoji.__type === ManagedEmojiSymbol ? [emoji] : Object.values(emoji),
+        )
+        .flat()
+
+      await Promise.all(emojisArray.map(async (emoji) => {
+        const appEmoji
+          = allEmojis?.find(e => e.name === emoji.emojiName)
+            ?? await client.application?.emojis.create({
+              name: emoji.emojiName,
+              attachment: emoji.emojiSrc,
+            })
+
+        if (appEmoji === undefined) {
+          throw new Error(`Failed to create emoji`)
+        }
+
+        emojiMap[emoji.emojiName] = appEmoji.toString()
+      }))
+    })
+
+    return client
+  }
 
   client.on('ready', (client) => {
     const rest = new REST().setToken(client.token)
@@ -258,7 +295,9 @@ export function bot(
           <AudioContext.Provider value={audioContext}>
             <InteractionContext.Provider value={interaction}>
               <MutationContext.Provider value={{ internal, setInternal }}>
-                {children}
+                <EmojiContext.Provider value={emojiMap}>
+                  {children}
+                </EmojiContext.Provider>
               </MutationContext.Provider>
             </InteractionContext.Provider>
           </AudioContext.Provider>

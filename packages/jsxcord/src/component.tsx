@@ -51,7 +51,17 @@ const Thumbnail = createComponent(ThumbnailInstance)
 
 export const ActionRow = createComponent(ActionRowInstance)
 export const Answer = createComponent(AnswerInstance)
-export const Button = createComponent(ButtonInstance)
+
+const RawButton = createComponent(ButtonInstance)
+
+export function Button(props: Omit<Parameters<typeof RawButton>[0], 'emoji'> & { emoji?: ReactNode }) {
+  return (
+    <RawButton {...props} emoji={typeof props.emoji === 'string' ? props.emoji : undefined}>
+      {typeof props.emoji !== 'string' && props.emoji}
+      {props.children}
+    </RawButton>
+  )
+}
 
 const RawEmbed = createComponent(EmbedInstance)
 
@@ -108,7 +118,18 @@ export function Img(props: Parameters<typeof RawImage>[0]) {
  * ```
  */
 export const Markdown = createComponent(MarkdownInstance)
-export const Option = createComponent(OptionInstance)
+
+const RawOption = createComponent(OptionInstance)
+
+export function Option(props: Omit<Parameters<typeof RawOption>[0], 'emoji'> & { emoji?: ReactNode }) {
+  return (
+    <RawOption {...props} emoji={typeof props.emoji === 'string' ? props.emoji : undefined}>
+      {typeof props.emoji !== 'string' && props.emoji}
+      {props.children}
+    </RawOption>
+  )
+}
+
 export const Poll = createComponent(PollInstance)
 export const Select = createComponent(SelectInstance)
 
