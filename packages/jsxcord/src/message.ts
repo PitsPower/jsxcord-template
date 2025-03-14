@@ -84,6 +84,13 @@ function findButtonWithId(
       }
     }
 
+    if (child instanceof ActionRowInstance) {
+      const button = findButtonWithId(child.data.components, id, users)
+      if (button !== undefined) {
+        return button
+      }
+    }
+
     if (child instanceof WhitelistInstance) {
       const button = findButtonWithId(child.data.children, id, child.data.users)
       if (button !== undefined) {
