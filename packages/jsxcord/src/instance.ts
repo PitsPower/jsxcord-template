@@ -95,7 +95,7 @@ export class EmptyInstance extends BaseInstance<null> {
   }
 }
 
-export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstance)[] }> {
+export class ActionRowInstance extends BaseInstance<{ components: ButtonInstance[] }> {
   static type: JsxcordInstanceType = 'ActionRow'
 
   static createInstance() {
@@ -117,15 +117,22 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
       return
     }
 
+    const componentChunks: ButtonInstance[][] = []
+    for (let i = 0; i < this.data.components.length; i += 5) {
+      componentChunks.push(this.data.components.slice(i, i + 5))
+    }
+
+    const actionRows = componentChunks.map(chunk => ({
+      type: ComponentType.ActionRow,
+      components: chunk.map(c => ({
+        ...c.data,
+        label: textInstancesToString(c.data.texts),
+      })),
+    }))
+
     options.components = [
       ...(options.components ?? []),
-      {
-        type: ComponentType.ActionRow,
-        components: this.data.components.map(c => ({
-          ...c.data,
-          label: textInstancesToString(c.data.texts),
-        })),
-      },
+      ...actionRows,
     ]
   }
 }
