@@ -196,7 +196,7 @@ export interface ButtonProps {
 }
 
 export class ButtonInstance extends BaseInstance<
-  Omit<InteractionButtonComponentData, 'label'> & Omit<ButtonProps, 'style'> & { texts: TextInstance[] }
+  Omit<InteractionButtonComponentData, 'label' | 'style'> & ButtonProps & { texts: TextInstance[] }
 > {
   static type: JsxcordInstanceType = 'Button'
 
@@ -204,7 +204,7 @@ export class ButtonInstance extends BaseInstance<
     return new ButtonInstance({
       type: ComponentType.Button,
       texts: [],
-      style: buttonStyleMap[props.style ?? 'secondary'],
+      style: props.style,
       customId: uuidv4(),
       disabled: props.disabled ?? false,
       emoji: props.emoji,
@@ -231,6 +231,7 @@ export class ButtonInstance extends BaseInstance<
         components: [{
           ...this.data,
           label: textInstancesToString(this.data.texts),
+          style: buttonStyleMap[this.data.style ?? 'secondary'],
         }],
       },
     ]
