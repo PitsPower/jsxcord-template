@@ -609,6 +609,7 @@ export class PollInstance extends BaseInstance<
 }
 
 interface SelectProps {
+  disabled?: boolean
   placeholder?: string
   onSelect?: (value: string, interaction: StringSelectMenuInteraction) => void
 }
@@ -623,6 +624,7 @@ export class SelectInstance extends BaseInstance<
       type: ComponentType.StringSelect,
       options: [],
       customId: uuidv4(),
+      disabled: props.disabled,
       placeholder: props.placeholder,
       onSelect: props.onSelect,
     })
