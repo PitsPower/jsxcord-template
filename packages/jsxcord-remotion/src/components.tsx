@@ -1,5 +1,5 @@
 import type { webpack } from '@remotion/bundler'
-import type { RegisteredRootBuilder } from './root.js'
+import type { FormatOptions, RegisteredRootBuilder } from './root.js'
 import { bundle } from '@remotion/bundler'
 import { renderMedia, renderStill, selectComposition } from '@remotion/renderer'
 import { asyncComponent, File, Img } from '@repo/jsxcord'
@@ -16,10 +16,10 @@ export function createComponents<Components extends Record<string, React.FC<any>
 ): Components {
   let bundleLocation: string | null = null
 
-  const result: Record<string, React.FC> = {}
+  const result: Record<string, React.FC<any>> = {}
 
   for (const id of rootBuilder._componentIds) {
-    result[id] = asyncComponent(async (props: Record<string, unknown>) => {
+    result[id] = asyncComponent(async (props: Record<string, unknown> & FormatOptions) => {
       if (bundleLocation === null) {
         bundleLocation = await bundle({
           entryPoint: rootPath,
@@ -34,47 +34,37 @@ export function createComponents<Components extends Record<string, React.FC<any>
         inputProps: props,
       })
 
-      if (props.still) {
-        logger.info(`Rendering still \`${id}\`...`)
+      logger.info(`Rendering \`${id}\`...`)
 
-        const output = await renderStill({
-          composition,
-          serveUrl: bundleLocation,
-          inputProps: props,
-          chromiumOptions: {
-            gl: 'angle-egl',
-          },
-        })
+      const output
+        = props.still
+          ? await renderStill({
+            composition,
+            serveUrl: bundleLocation,
+            inputProps: props,
+            chromiumOptions: {
+              gl: 'angle-egl',
+            },
+          })
+          : await renderMedia({
+            composition,
+            serveUrl: bundleLocation,
+            codec: props.gif ? 'gif' : 'h264',
+            inputProps: props,
+            chromiumOptions: {
+              gl: 'angle-egl',
+            },
+          })
 
-        if (output.buffer === null) {
-          throw new Error('No output buffer!')
-        }
-
-        logger.info(`Done rendering still \`${id}\`!`)
-
-        return <Img src={output.buffer.buffer as ArrayBuffer} />
+      if (output.buffer === null) {
+        throw new Error('No output buffer!')
       }
-      else {
-        logger.info(`Rendering \`${id}\`...`)
 
-        const output = await renderMedia({
-          composition,
-          serveUrl: bundleLocation,
-          codec: 'h264',
-          inputProps: props,
-          chromiumOptions: {
-            gl: 'angle-egl',
-          },
-        })
+      logger.info(`Done rendering \`${id}\`!`)
 
-        if (output.buffer === null) {
-          throw new Error('No output buffer!')
-        }
-
-        logger.info(`Done rendering \`${id}\`!`)
-
-        return <File name="video.mp4" content={output.buffer.buffer as ArrayBuffer} />
-      }
+      return props.gif || props.still
+        ? <Img name={props.gif ? 'video.gif' : undefined} src={output.buffer.buffer as ArrayBuffer} />
+        : <File name="video.mp4" content={output.buffer.buffer as ArrayBuffer} />
     })
   }
 

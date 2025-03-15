@@ -462,6 +462,7 @@ export class FileInstance extends BaseInstance<FileProps> {
 }
 
 interface ImageProps {
+  name?: string
   src: string | ArrayBuffer
 }
 
@@ -484,6 +485,7 @@ export class ImageInstance extends BaseInstance<ImageProps> {
     options.files = [
       ...(options.files ?? []),
       {
+        name: this.data.name,
         attachment: typeof this.data.src === 'string'
           ? this.data.src
           : Buffer.from(this.data.src),

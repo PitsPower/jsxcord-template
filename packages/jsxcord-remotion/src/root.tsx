@@ -6,6 +6,10 @@ import { Composition, registerRoot } from 'remotion'
 export type RegisteredRootBuilder<Components>
   = RootBuilder<Components, true>
 
+export type FormatOptions =
+  | { still?: boolean, gif?: undefined }
+  | { still?: undefined, gif?: boolean }
+
 export class RootBuilder<Components, Registered = false> {
   private remotionCompositions: JSX.Element[] = []
   public _componentIds: string[] = []
@@ -13,7 +17,7 @@ export class RootBuilder<Components, Registered = false> {
 
   add<Id extends string, Props extends Record<string, unknown>>(
     props: CompositionProps<AnyZodObject, Props> & { id: Id },
-  ): RootBuilder<Components & { [_ in Id]: React.FC<Props & { still?: boolean }> }, Registered> {
+  ): RootBuilder<Components & { [_ in Id]: React.FC<Props & FormatOptions> }, Registered> {
     this.remotionCompositions.push(
       <Composition key={Math.random()} {...props} />,
     )
