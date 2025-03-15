@@ -5,13 +5,13 @@ import { renderMedia, renderStill, selectComposition } from '@remotion/renderer'
 import { asyncComponent, File, Img } from '@repo/jsxcord'
 import { logger } from '@repo/logger'
 
-interface CreateComponentsOptions<Components extends Record<string, React.FC>> {
+interface CreateComponentsOptions<Components extends Record<string, React.FC<any>>> {
   rootBuilder: RegisteredRootBuilder<Components>
   rootPath: string
   webpackOverride?: (config: webpack.Configuration) => webpack.Configuration
 }
 
-export function createComponents<Components extends Record<string, React.FC>>(
+export function createComponents<Components extends Record<string, React.FC<any>>>(
   { rootBuilder, rootPath, webpackOverride }: CreateComponentsOptions<Components>,
 ): Components {
   let bundleLocation: string | null = null

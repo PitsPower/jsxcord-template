@@ -19,10 +19,10 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@remotion/bundler": "4.0.265",
-    "@remotion/renderer": "4.0.265",
+    "@remotion/bundler": "4.0.278",
+    "@remotion/renderer": "4.0.278",
     "react": "18.3.0",
-    "remotion": "4.0.265",
+    "remotion": "4.0.278",
     "zod": "^3.24.2"
   }
 }
