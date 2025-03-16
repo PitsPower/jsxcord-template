@@ -8,7 +8,7 @@
  * Various JSXcord-specific React hooks.
  */
 
-import type { ChatInputCommandInteraction, Interaction, Message, MessageCreateOptions } from 'discord.js'
+import type { ChatInputCommandInteraction, Message, MessageCreateOptions } from 'discord.js'
 import type { PropsWithChildren, ReactNode } from 'react'
 import type { ManagedEmoji } from './emoji.js'
 import type { AutocompleteFunction, ZodCommand } from './zod.js'
@@ -41,7 +41,7 @@ interface AudioContextData {
 /** @internal */
 export const AudioContext = createContext<AudioContextData | null>(null)
 /** @internal */
-export const InteractionContext = createContext<Interaction | null>(null)
+export const InteractionContext = createContext<ChatInputCommandInteraction | null>(null)
 
 class VoiceChannelError extends Error {}
 
@@ -244,6 +244,7 @@ export function bot(
         if (messages[i] !== undefined && !isMessageOptionsEmpty(options)) {
           messages[i] = await interaction.editReply({
             ...options,
+            message: messages[i],
             flags: [],
           })
         }
@@ -273,14 +274,12 @@ export function bot(
             messages[i] = await response.fetch()
           }
         }
-      }
-
-      for (let i = messageOptions.length; i < newOptions.length; i++) {
-        if (interaction.channel?.isSendable() && !isMessageOptionsEmpty(newOptions[i])) {
-          messages.push(await interaction.channel.send(newOptions[i]))
+        else if (!isMessageOptionsEmpty(options)) {
+          messages.push(await interaction.followUp({
+            ...options,
+            flags: [],
+          }))
         }
-
-        messageOptions[i] = newOptions[i]
       }
 
       hydrateMessages(messages, root)
@@ -293,7 +292,7 @@ export function bot(
       return (
         <Suspense fallback={<></>}>
           <AudioContext.Provider value={audioContext}>
-            <InteractionContext.Provider value={interaction}>
+            <InteractionContext.Provider value={interaction as ChatInputCommandInteraction}>
               <MutationContext.Provider value={{ internal, setInternal }}>
                 <EmojiContext.Provider value={emojiMap}>
                   {children}
