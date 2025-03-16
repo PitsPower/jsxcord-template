@@ -1,20 +1,20 @@
 import type { InteractionReplyOptions, Message } from 'discord.js'
-import { ComponentType } from 'discord.js'
 import type { Container } from './container.js'
 import type { Instance, InstanceOrText } from './instance.js'
+import { ComponentType } from 'discord.js'
 import {
-    ActionRowInstance,
-    ButtonInstance,
-    EmbedInstance,
-    EmptyInstance,
-    EphemeralInstance,
-    FileInstance,
-    ImageInstance,
-    MarkdownInstance,
-    PollInstance,
-    SelectInstance,
-    TextInstance,
-    WhitelistInstance,
+  ActionRowInstance,
+  ButtonInstance,
+  EmbedInstance,
+  EmptyInstance,
+  EphemeralInstance,
+  FileInstance,
+  ImageInstance,
+  MarkdownInstance,
+  PollInstance,
+  SelectInstance,
+  TextInstance,
+  WhitelistInstance,
 } from './instance.js'
 
 const UNRENDERED_MESSAGE_PARTS = [
@@ -82,7 +82,7 @@ export function createMessageOptions(container: Container): InteractionReplyOpti
     }
   }
 
-  return result.filter(options => !isMessageOptionsEmpty(options))
+  return result
 }
 
 interface InstanceWithWhitelist<I extends Instance> {
