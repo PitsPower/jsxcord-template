@@ -1,20 +1,20 @@
 import type { InteractionReplyOptions, Message } from 'discord.js'
+import { ComponentType } from 'discord.js'
 import type { Container } from './container.js'
 import type { Instance, InstanceOrText } from './instance.js'
-import { ComponentType } from 'discord.js'
 import {
-  ActionRowInstance,
-  ButtonInstance,
-  EmbedInstance,
-  EmptyInstance,
-  EphemeralInstance,
-  FileInstance,
-  ImageInstance,
-  MarkdownInstance,
-  PollInstance,
-  SelectInstance,
-  TextInstance,
-  WhitelistInstance,
+    ActionRowInstance,
+    ButtonInstance,
+    EmbedInstance,
+    EmptyInstance,
+    EphemeralInstance,
+    FileInstance,
+    ImageInstance,
+    MarkdownInstance,
+    PollInstance,
+    SelectInstance,
+    TextInstance,
+    WhitelistInstance,
 } from './instance.js'
 
 const UNRENDERED_MESSAGE_PARTS = [
@@ -31,6 +31,9 @@ const MESSAGE_PARTS = [
   [ActionRowInstance, ButtonInstance, SelectInstance],
 ]
 
+// Instances that should be their own message
+const MESSAGE_CONTAINERS = [EphemeralInstance]
+
 export function createMessageOptions(container: Container): InteractionReplyOptions[] {
   let currentMessageStage = 0
   let currentOptions: InteractionReplyOptions = {
@@ -41,12 +44,28 @@ export function createMessageOptions(container: Container): InteractionReplyOpti
   }
   const result = [currentOptions]
 
+  function createNewMessage() {
+    currentMessageStage = 0
+    currentOptions = {
+      content: '',
+      components: [],
+      embeds: [],
+      files: [],
+    }
+    result.push(currentOptions)
+  }
+
   for (const child of container.children) {
     if (child.isHidden) {
       continue
     }
 
     while (true) {
+      const isMessageContainer = MESSAGE_CONTAINERS.some(container => child instanceof container)
+      if (isMessageContainer) {
+        createNewMessage()
+      }
+
       const possibleInstances = [
         ...UNRENDERED_MESSAGE_PARTS,
         ...MESSAGE_PARTS[currentMessageStage],
@@ -57,20 +76,13 @@ export function createMessageOptions(container: Container): InteractionReplyOpti
       }
 
       currentMessageStage += 1
-      if (currentMessageStage >= MESSAGE_PARTS.length) {
-        currentMessageStage = 0
-        currentOptions = {
-          content: '',
-          components: [],
-          embeds: [],
-          files: [],
-        }
-        result.push(currentOptions)
+      if (currentMessageStage >= MESSAGE_PARTS.length || isMessageContainer) {
+        createNewMessage()
       }
     }
   }
 
-  return result
+  return result.filter(options => !isMessageOptionsEmpty(options))
 }
 
 interface InstanceWithWhitelist<I extends Instance> {
@@ -94,6 +106,13 @@ function findComponentWithId<I extends ButtonInstance | SelectInstance>(
 
     if (child instanceof ActionRowInstance) {
       const component = findComponentWithId(Class, child.data.components, id, users)
+      if (component !== undefined) {
+        return component
+      }
+    }
+
+    if (child instanceof EphemeralInstance) {
+      const component = findComponentWithId(Class, child.data.children, id, users)
       if (component !== undefined) {
         return component
       }
