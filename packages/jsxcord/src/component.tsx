@@ -8,7 +8,7 @@ import { URL } from 'node:url'
 import { time, TimestampStyles } from 'discord.js'
 import { createContext, createElement, useContext, useEffect, useState } from 'react'
 import { streamResource } from './audio.js'
-import { AudioContext, useInteraction } from './index.js'
+import { useInteraction } from './index.js'
 import {
   ActionRowInstance,
   AnswerInstance,
@@ -25,6 +25,7 @@ import {
   WhitelistInstance,
 } from './instance.js'
 import { use } from './react.js'
+import { AudioContext } from './root.js'
 
 /** @internal */
 export interface NodeProps<P, I extends Instance> {
