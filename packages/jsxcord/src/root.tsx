@@ -1,13 +1,13 @@
+import type { ChatInputCommandInteraction, InteractionReplyOptions, Message } from 'discord.js'
+import type { PropsWithChildren, ReactNode } from 'react'
+import type { JsxcordClient } from './index.js'
 import { createAudioPlayer, joinVoiceChannel } from '@discordjs/voice'
-import type { ChatInputCommandInteraction, Message, MessageCreateOptions } from 'discord.js'
 import { GuildMember } from 'discord.js'
 import Queue from 'promise-queue'
-import type { PropsWithChildren, ReactNode } from 'react'
 import { createContext, Suspense, useState } from 'react'
 import { Mixer } from './audio.js'
 import * as container from './container.js'
 import { EmojiContext } from './emoji.js'
-import type { JsxcordClient } from './index.js'
 import { createMessageOptions, hydrateMessages, isMessageOptionsEmpty } from './message.js'
 import { MutationContext } from './mutation.js'
 import Renderer from './renderer.js'
@@ -77,7 +77,7 @@ export async function setupRoot(
     audioContextsPerGuild[interaction.guildId] = audioContext
   }
 
-  const messageOptions: MessageCreateOptions[] = []
+  const messageOptions: InteractionReplyOptions[] = []
 
   function Root({ children }: PropsWithChildren) {
     // Used for `useMutation`
@@ -141,13 +141,13 @@ export async function setupRoot(
               })
               : await interaction.followUp({
                 ...options,
-                flags: [],
+                flags: options.flags ?? [],
               })
           }
           else {
             const response = await interaction.reply({
               ...options,
-              flags: [],
+              flags: options.flags ?? [],
             })
             messages[i] = await response.fetch()
           }
@@ -155,7 +155,7 @@ export async function setupRoot(
         else if (!isMessageOptionsEmpty(options)) {
           messages.push(await interaction.followUp({
             ...options,
-            flags: [],
+            flags: options.flags ?? [],
           }))
         }
       }

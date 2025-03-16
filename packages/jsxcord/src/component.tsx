@@ -14,6 +14,7 @@ import {
   AnswerInstance,
   ButtonInstance,
   EmbedInstance,
+  EphemeralInstance,
   FieldInstance,
   FileInstance,
   ImageInstance,
@@ -75,6 +76,7 @@ export function Embed(props: Parameters<typeof RawEmbed>[0] & { thumbnail?: Reac
   )
 }
 
+export const Ephemeral = createComponent(EphemeralInstance)
 export const Field = createComponent(FieldInstance)
 export const File = createComponent(FileInstance)
 

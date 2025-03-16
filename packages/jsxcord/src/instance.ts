@@ -2,7 +2,7 @@ import type { ColorLike } from 'color'
 import type {
   ButtonInteraction,
   InteractionButtonComponentData,
-  MessageCreateOptions,
+  InteractionReplyOptions,
   PollAnswerData,
   PollData,
   SelectMenuComponentOptionData,
@@ -10,7 +10,7 @@ import type {
   StringSelectMenuInteraction,
 } from 'discord.js'
 import Color from 'color'
-import { ButtonStyle, ComponentType, escapeMarkdown } from 'discord.js'
+import { BitField, ButtonStyle, ComponentType, escapeMarkdown, MessageFlags } from 'discord.js'
 import { v4 as uuidv4 } from 'uuid'
 
 type JsxcordInstanceType =
@@ -20,6 +20,7 @@ type JsxcordInstanceType =
   | 'Button'
   | 'Embed'
   | 'Empty'
+  | 'Ephemeral'
   | 'Field'
   | 'File'
   | 'Image'
@@ -76,7 +77,7 @@ abstract class BaseInstance<Data> {
   constructor(public data: Data) {}
   abstract appendChild(child: InstanceOrText): void
   abstract removeChild(child: InstanceOrText): void
-  abstract addToOptions(options: MessageCreateOptions): void
+  abstract addToOptions(options: InteractionReplyOptions): void
 }
 
 export interface AnswerProps {
@@ -138,7 +139,7 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
     }
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     if (this.data.components.length === 0) {
       return
     }
@@ -265,7 +266,7 @@ export class ButtonInstance extends BaseInstance<
     }
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     options.components = [
       ...(options.components ?? []),
       {
@@ -351,7 +352,7 @@ export class EmbedInstance extends BaseInstance<EmbedData> {
     }
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     if (this.data.image) {
       const { src } = this.data.image.data
 
@@ -396,6 +397,35 @@ export class EmbedInstance extends BaseInstance<EmbedData> {
         })) ?? [],
       },
     ]
+  }
+}
+
+export class EphemeralInstance extends BaseInstance<{ children: InstanceOrText[] }> {
+  static type: JsxcordInstanceType = 'Ephemeral'
+
+  static createInstance() {
+    return new EphemeralInstance({
+      children: [],
+    })
+  }
+
+  appendChild(child: InstanceOrText): void {
+    this.data.children.push(child)
+  }
+
+  removeChild(child: InstanceOrText): void {
+    const index = this.data.children.indexOf(child)
+    if (index !== -1) {
+      this.data.children.splice(index, 1)
+    }
+  }
+
+  addToOptions(options: InteractionReplyOptions): void {
+    for (const child of this.data.children) {
+      child.addToOptions(options)
+    }
+
+    options.flags = new BitField(options.flags).add(MessageFlags.Ephemeral)
   }
 }
 
@@ -450,7 +480,7 @@ export class FileInstance extends BaseInstance<FileProps> {
     throw new Error('Cannot remove a child from `File`.')
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     options.files = [
       ...(options.files ?? []),
       {
@@ -481,7 +511,7 @@ export class ImageInstance extends BaseInstance<ImageProps> {
     throw new Error('Cannot remove a child from `Image`.')
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     options.files = [
       ...(options.files ?? []),
       {
@@ -509,7 +539,7 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
     this.data.texts = this.data.texts.filter(text => text !== child)
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     options.content += textInstancesToString(this.data.texts)
   }
 
@@ -599,7 +629,7 @@ export class PollInstance extends BaseInstance<
     this.data.answers = this.data.answers.filter(answer => answer !== enforcedChild.data)
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     options.poll = {
       ...this.data,
       answers: this.data.answers.map(answer => ({
@@ -652,7 +682,7 @@ export class SelectInstance extends BaseInstance<
     }
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     options.components = [
       ...(options.components ?? []),
       {
@@ -674,7 +704,7 @@ export class TextInstance extends BaseInstance<string> {
     throw new Error('Attempted to remove child from `TextInstance`. This is a bug!')
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     // Escape all Markdown in text
     options.content += escapeMarkdown(this.data, {
       bulletedList: true,
@@ -758,7 +788,7 @@ export class WhitelistInstance extends BaseInstance<{
     this.data.children = this.data.children.filter(c => c !== child)
   }
 
-  addToOptions(options: MessageCreateOptions) {
+  addToOptions(options: InteractionReplyOptions) {
     for (const child of this.data.children) {
       child.addToOptions(options)
     }
@@ -771,6 +801,7 @@ export type Instance =
   | ButtonInstance
   | EmbedInstance
   | EmptyInstance
+  | EphemeralInstance
   | FileInstance
   | FieldInstance
   | ImageInstance

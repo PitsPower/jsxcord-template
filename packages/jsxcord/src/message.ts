@@ -1,4 +1,4 @@
-import type { Message, MessageCreateOptions } from 'discord.js'
+import type { InteractionReplyOptions, Message } from 'discord.js'
 import type { Container } from './container.js'
 import type { Instance, InstanceOrText } from './instance.js'
 import { ComponentType } from 'discord.js'
@@ -7,6 +7,7 @@ import {
   ButtonInstance,
   EmbedInstance,
   EmptyInstance,
+  EphemeralInstance,
   FileInstance,
   ImageInstance,
   MarkdownInstance,
@@ -18,6 +19,7 @@ import {
 
 const UNRENDERED_MESSAGE_PARTS = [
   EmptyInstance,
+  EphemeralInstance,
   WhitelistInstance,
 ]
 
@@ -29,9 +31,9 @@ const MESSAGE_PARTS = [
   [ActionRowInstance, ButtonInstance, SelectInstance],
 ]
 
-export function createMessageOptions(container: Container): MessageCreateOptions[] {
+export function createMessageOptions(container: Container): InteractionReplyOptions[] {
   let currentMessageStage = 0
-  let currentOptions: MessageCreateOptions = {
+  let currentOptions: InteractionReplyOptions = {
     content: '',
     components: [],
     embeds: [],
@@ -189,7 +191,7 @@ export function hydrateMessages(messages: Message[], container: Container) {
   }
 }
 
-export function isMessageOptionsEmpty(options: MessageCreateOptions) {
+export function isMessageOptionsEmpty(options: InteractionReplyOptions) {
   // TODO: Add more stuff here
   return (options.content === undefined || options.content.trim() === '')
     && (!options.components || options.components.length === 0)
