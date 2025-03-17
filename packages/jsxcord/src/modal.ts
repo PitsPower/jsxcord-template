@@ -27,12 +27,13 @@ export function createModal<T extends z.ZodRawShape>(title: string, inputs: T): 
 export async function showModal<T extends z.ZodRawShape>(
   interaction: MessageComponentInteraction,
   modalWithSchema: ModalWithSchema<T>,
+  timeoutMs?: number,
 ) {
   interaction.showModal(modalWithSchema.modal)
 
   const response = await interaction.awaitModalSubmit({
     filter: i => i.customId === modalWithSchema.modal.data.custom_id,
-    time: Infinity,
+    time: timeoutMs ?? Infinity,
   })
 
   response.deferUpdate()
