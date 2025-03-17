@@ -12,7 +12,6 @@ export interface ModalWithSchema<T extends z.ZodRawShape> {
 export function createModal<T extends z.ZodRawShape>(title: string, inputs: T): ModalWithSchema<T> {
   const builder = new ModalBuilder()
     .setTitle(title)
-    .setCustomId(uuidv4())
 
   for (const [key, value] of Object.entries(inputs)) {
     buildZodTypeForModal(builder, key, value)
@@ -29,7 +28,7 @@ export async function showModal<T extends z.ZodRawShape>(
   modalWithSchema: ModalWithSchema<T>,
   timeoutMs?: number,
 ) {
-  interaction.showModal(modalWithSchema.modal)
+  interaction.showModal(modalWithSchema.modal.setCustomId(uuidv4()))
 
   const response = await interaction.awaitModalSubmit({
     filter: i => i.customId === modalWithSchema.modal.data.custom_id,
