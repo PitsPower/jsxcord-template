@@ -4,9 +4,9 @@ import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { buildZodTypeForModal } from './zod.js'
 
-interface ModalWithSchema<T extends z.ZodRawShape> {
-  schema: T
+export interface ModalWithSchema<T extends z.ZodRawShape> {
   modal: ModalBuilder
+  schema: T
 }
 
 export function createModal<T extends z.ZodRawShape>(title: string, inputs: T): ModalWithSchema<T> {
@@ -19,8 +19,8 @@ export function createModal<T extends z.ZodRawShape>(title: string, inputs: T): 
   }
 
   return {
-    schema: inputs,
     modal: builder,
+    schema: inputs,
   }
 }
 
