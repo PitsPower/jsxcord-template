@@ -643,7 +643,7 @@ export class PollInstance extends BaseInstance<
 interface SelectProps {
   disabled?: boolean
   placeholder?: string
-  onSelect?: (value: string, interaction: StringSelectMenuInteraction) => void
+  onSelect?: (value: string, interaction: StringSelectMenuInteraction) => void | Promise<void>
 }
 
 export class SelectInstance extends BaseInstance<
