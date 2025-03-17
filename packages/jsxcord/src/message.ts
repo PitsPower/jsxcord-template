@@ -144,7 +144,7 @@ export function hydrateMessages(messages: Message[], container: Container) {
               componentType: ComponentType.Button,
             })
 
-            collector.on('collect', (interaction) => {
+            collector.on('collect', async (interaction) => {
               if (component.customId === null || interaction.customId !== component.customId) {
                 return
               }
@@ -160,8 +160,11 @@ export function hydrateMessages(messages: Message[], container: Container) {
                 return
               }
 
-              void interaction.deferUpdate()
-              onClick(interaction)
+              await onClick(interaction)
+              try {
+                await interaction.deferUpdate()
+              }
+              catch {}
             })
 
             container.hydratedIds.push(component.customId)

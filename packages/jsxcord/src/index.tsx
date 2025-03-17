@@ -17,11 +17,12 @@ import { z } from 'zod'
 import { createEmoji, createEmojisFromFolder, ManagedEmojiSymbol } from './emoji.js'
 import { setupRoot } from './root.js'
 import { sync } from './util.js'
-import { buildZodType, getOptionsAsObject } from './zod.js'
+import { buildZodTypeForCommand, getOptionsAsObject } from './zod.js'
 
 export * from './async.js'
 export * from './component.js'
 export * from './hook.js'
+export * from './modal.js'
 export * from './mutation.js'
 export * from './shared.js'
 export { createEmoji, createEmojisFromFolder }
@@ -109,7 +110,7 @@ export function bot(
 
           if (command instanceof z.ZodObject) {
             for (const [key, value] of Object.entries(command.shape as object)) {
-              buildZodType(builder, key, value)
+              buildZodTypeForCommand(builder, key, value)
             }
           }
 

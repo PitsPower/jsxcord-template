@@ -219,7 +219,7 @@ export interface ButtonProps {
   disabled?: boolean
   emoji?: string | MarkdownInstance
   style?: ButtonStyleString
-  onClick?: (interaction: ButtonInteraction) => void
+  onClick?: (interaction: ButtonInteraction) => void | Promise<void>
 }
 
 export class ButtonInstance extends BaseInstance<

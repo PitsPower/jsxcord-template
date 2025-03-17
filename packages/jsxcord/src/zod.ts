@@ -1,6 +1,6 @@
-import type { ApplicationCommandOptionBase, ChatInputCommandInteraction, SlashCommandOptionsOnlyBuilder } from 'discord.js'
+import type { ApplicationCommandOptionBase, ChatInputCommandInteraction, ModalActionRowComponentBuilder, ModalBuilder, SlashCommandOptionsOnlyBuilder } from 'discord.js'
+import { ActionRowBuilder, Attachment, GuildMember, TextInputBuilder, TextInputStyle } from 'discord.js'
 import type { ReactNode } from 'react'
-import { Attachment, GuildMember } from 'discord.js'
 import { z } from 'zod'
 
 export { z }
@@ -14,11 +14,27 @@ declare module 'zod' {
   export interface ZodString {
     _autocompleteFunc?: AutocompleteFunction
     autocomplete: (func: AutocompleteFunction) => ZodString
+
+    _long?: boolean
+    long: () => ZodString
+
+    _placeholder?: string
+    placeholder: (placeholder: string) => ZodString
   }
 }
 
 z.ZodString.prototype.autocomplete = function (this: z.ZodString, func) {
   this._autocompleteFunc = func
+  return this
+}
+
+z.ZodString.prototype.long = function (this: z.ZodString) {
+  this._long = true
+  return this
+}
+
+z.ZodString.prototype.placeholder = function (this: z.ZodString, placeholder) {
+  this._placeholder = placeholder
   return this
 }
 
@@ -45,8 +61,75 @@ export const discord = {
   member: () => new DiscordMemberType({}),
 }
 
-/** Given the Zod type, calls the relevant builder methods */
-export function buildZodType(
+export function buildZodTypeForModal(
+  builder: ModalBuilder,
+  key: string,
+  value: any,
+  augmentTextInputFuncs: (<T extends ModalActionRowComponentBuilder>(option: T) => T)[] = [],
+) {
+  if (!(value instanceof z.ZodType))
+    throw new TypeError('Unhandled type in command options. This is a bug!')
+
+  /** Adds the name, description, etc. */
+  const augmentTextInput = <T extends ModalActionRowComponentBuilder>(builder: T): T => {
+    builder = builder.setCustomId(key)
+    builder = builder.setLabel(value.description ?? (key[0].toUpperCase() + key.slice(1)))
+
+    if (!value.isOptional()) {
+      builder = builder.setRequired(true)
+    }
+
+    for (const func of augmentTextInputFuncs) {
+      builder = func(builder)
+    }
+
+    return builder
+  }
+
+  if (value instanceof z.ZodString) {
+    let textInput = new TextInputBuilder()
+      .setStyle(value._long ? TextInputStyle.Paragraph : TextInputStyle.Short)
+
+    if (value.minLength) {
+      textInput = textInput.setMinLength(value.minLength)
+    }
+    if (value.maxLength) {
+      textInput = textInput.setMaxLength(value.maxLength)
+    }
+
+    if (value._placeholder !== undefined) {
+      textInput = textInput.setPlaceholder(value._placeholder)
+    }
+
+    const augmentedTextInput = augmentTextInput(textInput)
+
+    const actionRow = new ActionRowBuilder<ModalActionRowComponentBuilder>()
+      .addComponents(augmentedTextInput)
+
+    builder.addComponents(actionRow)
+  }
+  else if (value instanceof z.ZodOptional || value instanceof z.ZodDefault) {
+    const augmentations: (<T extends ModalActionRowComponentBuilder>(option: T) => T)[] = [
+      augmentTextInput,
+      option => option.setRequired(false),
+    ]
+
+    if (value instanceof z.ZodDefault) {
+      augmentations.push(option => option.setValue(value._def.defaultValue()))
+    }
+
+    buildZodTypeForModal(builder, key, value._def.innerType, augmentations)
+  }
+  else if (value instanceof z.ZodEffects) {
+    buildZodTypeForModal(builder, key, value.innerType(), [augmentTextInput])
+  }
+  else {
+    throw new TypeError('Unhandled type in modal options.')
+  }
+}
+
+/** Given the Zod type, calls the relevant slash command builder methods */
+export function buildZodTypeForCommand(
   builder: SlashCommandOptionsOnlyBuilder,
   key: string,
   value: any,
@@ -60,8 +143,9 @@ export function buildZodType(
     option = option.setName(key)
     option = option.setDescription(value.description ?? 'No description')
 
-    if (!value.isOptional())
+    if (!value.isOptional()) {
       option = option.setRequired(true)
+    }
 
     for (const func of augmentOptionFuncs) {
       option = func(option)
@@ -74,8 +158,16 @@ export function buildZodType(
     builder.addStringOption((option) => {
       option = augmentOption(option)
 
-      if (value._autocompleteFunc !== undefined)
+      if (value.minLength) {
+        option = option.setMinLength(value.minLength)
+      }
+      if (value.maxLength) {
+        option = option.setMaxLength(value.maxLength)
+      }
+
+      if (value._autocompleteFunc !== undefined) {
         option = option.setAutocomplete(true)
+      }
 
       return option
     })
@@ -130,13 +222,13 @@ export function buildZodType(
     builder.addAttachmentOption(augmentOption)
   }
   else if (value instanceof z.ZodOptional || value instanceof z.ZodDefault) {
-    buildZodType(builder, key, value._def.innerType, [
+    buildZodTypeForCommand(builder, key, value._def.innerType, [
       augmentOption,
       option => option.setRequired(false),
     ])
   }
   else if (value instanceof z.ZodEffects) {
-    buildZodType(builder, key, value.innerType(), [augmentOption])
+    buildZodTypeForCommand(builder, key, value.innerType(), [augmentOption])
   }
   else {
     throw new TypeError('Unhandled type in command options. This is a bug!')
