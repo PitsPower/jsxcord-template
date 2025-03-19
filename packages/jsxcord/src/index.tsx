@@ -57,6 +57,7 @@ export function bot(
 ): JsxcordClient {
   const client = new Client({ intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildVoiceStates,
   ] }) as JsxcordClient
 
@@ -96,7 +97,7 @@ export function bot(
     const rest = new REST().setToken(client.token)
 
     void rest.put(
-      Routes.applicationCommands(client.user.id),
+      Routes.applicationCommands(client.application.id),
       {
         body: Object.entries(commands).map(([name, command]) => {
           const builder = new SlashCommandBuilder()

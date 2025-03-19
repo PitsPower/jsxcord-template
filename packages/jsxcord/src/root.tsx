@@ -2,7 +2,7 @@ import type { ChatInputCommandInteraction, InteractionReplyOptions, Message } fr
 import type { PropsWithChildren, ReactNode } from 'react'
 import type { JsxcordClient } from './index.js'
 import { createAudioPlayer, joinVoiceChannel } from '@discordjs/voice'
-import { GuildMember } from 'discord.js'
+import { GuildMember, InteractionContextType } from 'discord.js'
 import Queue from 'promise-queue'
 import { createContext, Suspense, useState } from 'react'
 import { Mixer } from './audio.js'
@@ -120,11 +120,19 @@ export async function setupRoot(
         }
 
         if (messages[i] !== undefined && !isMessageOptionsEmpty(options)) {
-          messages[i] = await interaction.editReply({
-            ...options,
-            message: messages[i],
-            flags: [],
-          })
+          if (interaction.context === InteractionContextType.Guild) {
+            messages[i] = await messages[i].edit({
+              ...options,
+              flags: [],
+            })
+          }
+          else {
+            messages[i] = await interaction.editReply({
+              ...options,
+              message: messages[i],
+              flags: [],
+            })
+          }
         }
         else if (i === 0) {
           if (isMessageOptionsEmpty(options)) {
