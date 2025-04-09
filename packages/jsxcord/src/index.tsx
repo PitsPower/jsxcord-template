@@ -59,6 +59,7 @@ export function bot(
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.MessageContent,
   ] }) as JsxcordClient
 
   // Maps emoji names to their Markdown representations

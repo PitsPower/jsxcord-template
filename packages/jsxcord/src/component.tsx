@@ -173,7 +173,7 @@ function isUrl(input: string) {
   }
 }
 
-interface AudioProps {
+export interface AudioProps {
   src: string | Buffer | Readable | ReadableStream | NodeJS.ReadableStream
   onStart?: () => void
   onFinish?: () => void
@@ -194,7 +194,7 @@ export function Audio({ src, onStart, onFinish, paused }: AudioProps) {
     )
 
     onStart?.()
-    stream.on('end', () => onFinish?.())
+    stream.once('end', () => onFinish?.())
 
     const track = audioContext?.mixer.playTrack(stream, paused) ?? null
     setTrack(track)
