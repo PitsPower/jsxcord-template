@@ -20,6 +20,7 @@
         "canvas": "^3.1.0",
         "cheerio": "^1.0.0",
         "chess": "^1.2.2",
+        "discord.js": "^14.18.0",
         "konva": "^9.3.18",
         "node-vibrant": "^4.0.3",
         "openai": "^4.90.0",

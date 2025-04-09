@@ -3,20 +3,32 @@
   "type": "module",
   "module": "src/index.tsx",
   "scripts": {
-    "dev": "bun --watch src/index.tsx"
+    "dev": "bun --watch src/index.tsx",
+    "build": "bun build.ts"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@google/genai": "^0.7.0",
+    "@remotion/cli": "4.0.278",
+    "@remotion/transitions": "4.0.278",
+    "@remotion/zod-types": "4.0.278",
     "canvas": "^3.1.0",
     "cheerio": "^1.0.0",
+    "chess": "^1.2.2",
+    "discord.js": "^14.18.0",
     "konva": "^9.3.18",
-    "openai": "^4.85.1",
+    "node-vibrant": "^4.0.3",
+    "openai": "^4.90.0",
     "opusscript": "^0.1.1",
+    "react-error-boundary": "^5.0.0",
     "react-konva": "18",
+    "remotion": "4.0.278",
     "sharp": "^0.33.5",
-    "zod": "^3.24.2"
+    "use-image": "^1.1.1",
+    "zod": "^3.24.2",
+    "zx": "^8.4.1"
   },
   "devDependencies": {
     "@repo/jsxcord": "workspace:*",

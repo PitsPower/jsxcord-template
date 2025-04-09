@@ -10,7 +10,7 @@
   "module": "index.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build": "typedoc src/index.tsx && tsc"
+    "build": "tsc"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
