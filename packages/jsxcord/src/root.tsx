@@ -1,4 +1,4 @@
-import type { ChatInputCommandInteraction, InteractionReplyOptions, Message } from 'discord.js'
+import type { BaseMessageOptionsWithPoll, ChatInputCommandInteraction, Interaction, InteractionReplyOptions, Message } from 'discord.js'
 import type { PropsWithChildren, ReactNode } from 'react'
 import type { JsxcordClient } from './index.js'
 import { createAudioPlayer, joinVoiceChannel } from '@discordjs/voice'
@@ -26,14 +26,10 @@ export const AudioContext = createContext<AudioContextData | null>(null)
 /** @internal */
 export const InteractionContext = createContext<ChatInputCommandInteraction | null>(null)
 
-export async function setupRoot(
-  interaction: ChatInputCommandInteraction,
+function createWrapper(
+  interaction: Interaction,
   client: JsxcordClient,
-  component: ReactNode,
-): Promise<void> {
-  const root = container.create(interaction.client)
-  const messages: Message[] = []
-
+): React.FC<{ children: React.ReactNode }> {
   const mixer = new Mixer()
   let hasJoinedVc = false
 
@@ -77,9 +73,7 @@ export async function setupRoot(
     audioContextsPerGuild[interaction.guildId] = audioContext
   }
 
-  const messageOptions: InteractionReplyOptions[] = []
-
-  function Root({ children }: PropsWithChildren) {
+  function Wrapper({ children }: PropsWithChildren) {
     // Used for `useMutation`
     const [internal, setInternal] = useState(0)
 
@@ -97,6 +91,42 @@ export async function setupRoot(
       </Suspense>
     )
   }
+
+  return Wrapper
+}
+
+export async function render(
+  interaction: Interaction,
+  component: ReactNode,
+): Promise<BaseMessageOptionsWithPoll> {
+  const client = interaction.client as JsxcordClient
+  const root = container.create(client)
+  const Wrapper = createWrapper(interaction, client)
+
+  return new Promise((resolve) => {
+    root.onChange = async () => {
+      const options = createMessageOptions(root)
+        .filter(options => !isMessageOptionsEmpty(options))
+
+      if (options[0]) {
+        resolve(options[0])
+      }
+    }
+
+    Renderer.render(<Wrapper>{component}</Wrapper>, root)
+  })
+}
+
+export async function setupRoot(
+  interaction: ChatInputCommandInteraction,
+  client: JsxcordClient,
+  component: ReactNode,
+): Promise<void> {
+  const root = container.create(interaction.client)
+  const messages: Message[] = []
+  const messageOptions: InteractionReplyOptions[] = []
+
+  const Wrapper = createWrapper(interaction, client)
 
   // Queue so things happen in correct order
   // (e.g. deferring and then responding)
@@ -174,6 +204,6 @@ export async function setupRoot(
       hydrateMessages(messages, root)
     })
 
-    Renderer.render(<Root>{component}</Root>, root)
+    Renderer.render(<Wrapper>{component}</Wrapper>, root)
   })
 }

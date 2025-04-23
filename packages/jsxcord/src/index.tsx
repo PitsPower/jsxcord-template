@@ -15,7 +15,7 @@ import type { AutocompleteFunction, ZodCommand } from './zod.js'
 import { Client, GatewayIntentBits, InteractionContextType, REST, Routes, SlashCommandBuilder } from 'discord.js'
 import { z } from 'zod'
 import { createEmoji, createEmojisFromFolder, ManagedEmojiSymbol } from './emoji.js'
-import { setupRoot } from './root.js'
+import { render, setupRoot } from './root.js'
 import { sync } from './util.js'
 import { buildZodTypeForCommand, getOptionsAsObject } from './zod.js'
 
@@ -25,7 +25,7 @@ export * from './hook.js'
 export * from './modal.js'
 export * from './mutation.js'
 export * from './shared.js'
-export { createEmoji, createEmojisFromFolder }
+export { createEmoji, createEmojisFromFolder, render }
 
 export interface JsxcordClient<Ready extends boolean = boolean> extends Client<Ready> {
   emojiMap: Record<string, string>
