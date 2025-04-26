@@ -1,6 +1,7 @@
+import type { ButtonInteraction } from 'discord.js'
 import { readFile, writeFile } from 'node:fs/promises'
 import { GoogleGenAI, Modality } from '@google/genai'
-import { asyncComponent, Audio, bot, createGuildState, Embed, Img, useFollowUp, useSharedState, watch, withLoader } from '@repo/jsxcord'
+import { Audio, bot, Button, createGuildState, Embed, Ephemeral, Heading, Img, render, useFollowUp, useSharedState, watch, withLoader } from '@repo/jsxcord'
 import { command, z } from '@repo/jsxcord/zod'
 import { logger } from '@repo/logger'
 import { $ } from 'bun'
@@ -28,8 +29,6 @@ async function generateFilter(description: string) {
   })
   return response.text ?? ''
 }
-
-const FilterTest: React.FC<{ filter: string }> = asyncComponent(({ filter }) => generateFilter(filter))
 
 async function getUrlInfo(url: string) {
   const info = await $`yt-dlp -J ${url}`.json() as {
@@ -74,19 +73,42 @@ interface QueueEntry {
   info: Awaited<ReturnType<typeof getUrlInfo>>
 }
 
-const QueueEmbed: React.FC<{ info: QueueEntry['info'] }> = ({ info }) => (
-  <Embed
-    title={info.title}
-    description={info.description}
-    color={info.thumbnail.color}
-    thumbnail={<Img src={info.thumbnail.src} />}
-  />
-)
+function QueueEmbed({ info }: { info: QueueEntry['info'] }) {
+  async function showMore(interaction: ButtonInteraction) {
+    await interaction.reply(
+      await render(
+        interaction,
+        <Ephemeral>
+          <Embed
+            title={info.title}
+            description={info.description}
+            color={info.thumbnail.color}
+            thumbnail={<Img src={info.thumbnail.src} />}
+          />
+        </Ephemeral>,
+      ),
+    )
+  };
+
+  return (
+    <>
+      <Embed
+        title={info.title}
+        description={info.description.slice(0, 200).split('\n').slice(0, 5).join('\n')}
+        color={info.thumbnail.color}
+        thumbnail={<Img src={info.thumbnail.src} />}
+      />
+      <Button onClick={showMore}>
+        Show More
+      </Button>
+    </>
+  )
+}
 
 type Queue = (QueueEntry & { id: number })[]
 const QueueState = createGuildState<Queue>([])
 
-const QueueItem: React.FC<QueueEntry> = ({ buffer, info }) => {
+function QueueItem({ buffer, info }: QueueEntry) {
   const followUp = useFollowUp()
   const [queue, setQueue] = useSharedState(watch(QueueState))
 
@@ -108,6 +130,7 @@ const QueueItem: React.FC<QueueEntry> = ({ buffer, info }) => {
   // If we're at the front of the queue, play
   // Otherwise, stop playing
   useEffect(() => {
+    // eslint-disable-next-line no-console
     console.log(queue.map(item => item.id))
 
     if (queue[0]?.id === queueId) {
@@ -128,6 +151,7 @@ const QueueItem: React.FC<QueueEntry> = ({ buffer, info }) => {
         src={buffer}
         paused={!isPlaying}
         onFinish={() => {
+          // eslint-disable-next-line no-console
           console.log('Finished playing ', queueId)
           setQueue(queue => queue.filter(entry => entry.id !== queueId))
         }}
@@ -149,7 +173,7 @@ const YouTubeAudioRaw = withLoader(
   },
 )
 
-const YouTubeAudio: React.FC<{ url: string, filter?: string }> = ({ url, filter }) => {
+function YouTubeAudio({ url, filter }: { url: string, filter?: string }) {
   return (
     <ErrorBoundary fallback="Failed.">
       <YouTubeAudioRaw url={url} filter={filter} />
@@ -157,9 +181,18 @@ const YouTubeAudio: React.FC<{ url: string, filter?: string }> = ({ url, filter 
   )
 }
 
+function StarTest() {
+  return (
+    <>
+      <Heading>Playing??</Heading>
+      <Audio src="https://stream.radiocaroline.net/rc128/;" />
+    </>
+  )
+}
+
 const client = bot({
   play: command({ url: z.string(), filter: z.string().optional() }).component(YouTubeAudio),
-  test: command({ filter: z.string() }).component(FilterTest),
+  test: command({}).component(StarTest),
 })
   .on('ready', async () => logger.info('Bot started'))
 

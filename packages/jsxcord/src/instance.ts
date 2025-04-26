@@ -1,5 +1,7 @@
 import type { ColorLike } from 'color'
 import type {
+  APIMediaGalleryItem,
+  BaseMessageOptions,
   ButtonInteraction,
   InteractionButtonComponentData,
   InteractionReplyOptions,
@@ -14,19 +16,24 @@ import { BitField, ButtonStyle, ComponentType, escapeMarkdown, MessageFlags } fr
 import { v4 as uuidv4 } from 'uuid'
 
 type JsxcordInstanceType =
+  | 'Accessory'
   | 'ActionRow'
   | 'Answer'
   | 'Base'
   | 'Button'
+  | 'Container'
+  | 'Divider'
   | 'Embed'
   | 'Empty'
   | 'Ephemeral'
   | 'Field'
   | 'File'
+  | 'Gallery'
   | 'Image'
   | 'Markdown'
   | 'Option'
   | 'Poll'
+  | 'Section'
   | 'Select'
   | 'Text'
   | 'Thumbnail'
@@ -78,6 +85,7 @@ abstract class BaseInstance<Data> {
   abstract appendChild(child: InstanceOrText): void
   abstract removeChild(child: InstanceOrText): void
   abstract addToOptions(options: InteractionReplyOptions): void
+  abstract addToOptionsV2(options: InteractionReplyOptions): void
 }
 
 export interface AnswerProps {
@@ -93,17 +101,42 @@ export class EmptyInstance extends BaseInstance<null> {
     return new EmptyInstance(null)
   }
 
-  appendChild() {
+  appendChild() {}
+  removeChild() {}
+  addToOptions() {}
+  addToOptionsV2() {}
+}
 
+export class AccessoryInstance extends BaseInstance<{ instance?: ButtonInstance | ImageInstance }> {
+  static type: JsxcordInstanceType = 'Accessory'
+
+  static createInstance() {
+    return new AccessoryInstance({})
   }
 
-  removeChild() {
+  appendChild(child: InstanceOrText) {
+    const enforcedChild = enforceType(
+      child,
+      [ButtonInstance, ImageInstance],
+    )
 
+    this.data = {
+      ...this.data,
+      instance: enforcedChild,
+    }
   }
 
-  addToOptions() {
-
+  removeChild(child: InstanceOrText) {
+    if (this.data.instance === child) {
+      this.data = {
+        ...this.data,
+        instance: undefined,
+      }
+    }
   }
+
+  addToOptions() {}
+  addToOptionsV2() {}
 }
 
 type ButtonStyleString = 'primary' | 'secondary' | 'success' | 'danger'
@@ -183,6 +216,10 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
       ...actionRows,
     ]
   }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    this.addToOptions(options)
+  }
 }
 
 type InternalPollAnswerData = Omit<PollAnswerData, 'text'> & { texts: TextInstance[] }
@@ -212,6 +249,10 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
     throw new Error(
       'Attempted to add `AnswerInstance` to message options. Ensure all `Answer` components are in a `Poll` component.',
     )
+  }
+
+  addToOptionsV2() {
+    this.addToOptions()
   }
 }
 
@@ -266,12 +307,109 @@ export class ButtonInstance extends BaseInstance<
     }
   }
 
+  toComponentV2JSON() {
+    return {
+      ...this.data,
+      custom_id: this.data.customId,
+      emoji: typeof this.data.emoji === 'string' ? this.data.emoji : this.data.emoji?.asText(),
+      label: textInstancesToString(this.data.texts),
+      style: buttonStyleMap[this.data.style ?? 'secondary'],
+    }
+  }
+
   addToOptions(options: InteractionReplyOptions) {
     options.components = [
       ...(options.components ?? []),
       {
         type: ComponentType.ActionRow,
         components: [this.toComponentJSON()],
+      },
+    ]
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.ActionRow,
+        components: [this.toComponentV2JSON()],
+      },
+    ]
+  }
+}
+
+export interface ContainerProps {
+  color?: ColorLike
+}
+
+export class ContainerInstance extends BaseInstance<ContainerProps & { children: InstanceOrText[] }> {
+  static type: JsxcordInstanceType = 'Container'
+
+  static createInstance(props: ContainerProps) {
+    return new ContainerInstance({
+      ...props,
+      children: [],
+    })
+  }
+
+  appendChild(child: InstanceOrText) {
+    this.data.children = [...this.data.children, child]
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.children = this.data.children.filter(c => c !== child)
+  }
+
+  addToOptions() {
+    throw new Error('Components v1 does not support <Container>. Use <Embed> instead.')
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    const children = { components: [], files: [] }
+
+    for (const child of this.data.children) {
+      child.addToOptionsV2(children)
+    }
+
+    options.files = [...(options.files ?? []), ...children.files]
+
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.Container,
+        accent_color: Color(this.data.color).rgbNumber(),
+        components: children.components,
+      },
+    ]
+  }
+}
+
+export class DividerInstance extends BaseInstance<{ small?: boolean }> {
+  static type: JsxcordInstanceType = 'Divider'
+
+  static createInstance(props: { small?: boolean }) {
+    return new DividerInstance(props)
+  }
+
+  appendChild() {
+    throw new Error('<Hr /> does not support children.')
+  }
+
+  removeChild() {
+    throw new Error('<Hr /> does not support children.')
+  }
+
+  addToOptions() {
+    throw new Error('Components v1 does not support <Hr />.')
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.Separator,
+        divider: true,
+        spacing: this.data.small ? 1 : 2,
       },
     ]
   }
@@ -398,6 +536,10 @@ export class EmbedInstance extends BaseInstance<EmbedData> {
       },
     ]
   }
+
+  addToOptionsV2() {
+    throw new Error('Components v2 does not support <Embed>. Use <Container> instead.')
+  }
 }
 
 export class EphemeralInstance extends BaseInstance<{ children: InstanceOrText[] }> {
@@ -409,23 +551,27 @@ export class EphemeralInstance extends BaseInstance<{ children: InstanceOrText[]
     })
   }
 
-  appendChild(child: InstanceOrText): void {
+  appendChild(child: InstanceOrText) {
     this.data.children.push(child)
   }
 
-  removeChild(child: InstanceOrText): void {
+  removeChild(child: InstanceOrText) {
     const index = this.data.children.indexOf(child)
     if (index !== -1) {
       this.data.children.splice(index, 1)
     }
   }
 
-  addToOptions(options: InteractionReplyOptions): void {
+  addToOptions(options: InteractionReplyOptions) {
     for (const child of this.data.children) {
       child.addToOptions(options)
     }
 
     options.flags = new BitField(options.flags).add(MessageFlags.Ephemeral)
+  }
+
+  addToOptionsV2(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
   }
 }
 
@@ -458,6 +604,10 @@ export class FieldInstance extends BaseInstance<FieldProps & { children: (Instan
       'Attempted to add `FieldInstance` to message options. Ensure all `Field` components are in an `Embed` component.',
     )
   }
+
+  addToOptionsV2(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
 }
 
 interface FileProps {
@@ -489,10 +639,71 @@ export class FileInstance extends BaseInstance<FileProps> {
       },
     ]
   }
+
+  addToOptionsV2(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
+}
+
+type Writeable<T> = { -readonly [P in keyof T]: T[P] }
+
+export class GalleryInstance extends BaseInstance<{ images: ImageInstance[] }> {
+  static type: JsxcordInstanceType = 'Gallery'
+
+  static createInstance() {
+    return new GalleryInstance({ images: [] })
+  }
+
+  appendChild(child: InstanceOrText) {
+    this.data.images.push(enforceType(child, ImageInstance))
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.images = this.data.images.filter(image => image !== child)
+  }
+
+  addToOptions() {
+    throw new Error('Components v1 does not support <Gallery>.')
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    const mediaGalleryItems: APIMediaGalleryItem[] = []
+    const files: Writeable<BaseMessageOptions['files']> = []
+
+    this.data.images.forEach((image, index) => {
+      const fileName = image.data.name ?? `gallery${index}.png`
+
+      files.push({
+        name: fileName,
+        attachment: typeof image.data.src === 'string'
+          ? image.data.src
+          : Buffer.from(image.data.src),
+      })
+
+      mediaGalleryItems.push({
+        media: { url: `attachment://${fileName}` },
+        description: image.data.alt,
+      })
+    })
+
+    options.files = [
+      ...(options.files ?? []),
+      ...files,
+    ]
+
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.MediaGallery,
+        items: mediaGalleryItems,
+      },
+    ]
+  }
 }
 
 interface ImageProps {
   name?: string
+  alt?: string
   src: string | ArrayBuffer
 }
 
@@ -522,6 +733,33 @@ export class ImageInstance extends BaseInstance<ImageProps> {
       },
     ]
   }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    const fileName = this.data.name ?? 'image.png'
+
+    options.files = [
+      ...(options.files ?? []),
+      {
+        name: fileName,
+        attachment: typeof this.data.src === 'string'
+          ? this.data.src
+          : Buffer.from(this.data.src),
+      },
+    ]
+
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.MediaGallery,
+        items: [
+          {
+            media: { url: `attachment://${fileName}` },
+            description: this.data.alt,
+          },
+        ],
+      },
+    ]
+  }
 }
 
 export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
@@ -541,6 +779,16 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
 
   addToOptions(options: InteractionReplyOptions) {
     options.content += textInstancesToString(this.data.texts)
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.TextDisplay,
+        content: textInstancesToString(this.data.texts),
+      },
+    ]
   }
 
   asText() {
@@ -597,6 +845,10 @@ export class OptionInstance extends BaseInstance<
       'Attempted to add `OptionInstance` to message options. Ensure all `Option` components are in a `Select` component.',
     )
   }
+
+  addToOptionsV2(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
 }
 
 export interface PollProps {
@@ -637,6 +889,84 @@ export class PollInstance extends BaseInstance<
         text: textInstancesToString(answer.texts),
       })),
     }
+  }
+
+  addToOptionsV2(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
+}
+
+interface SectionProps {}
+
+type SectionData = Omit<SectionProps, 'accessory'> & {
+  accessory?: AccessoryInstance
+  children: (MarkdownInstance | TextInstance)[]
+}
+
+export class SectionInstance extends BaseInstance<SectionData> {
+  static type: JsxcordInstanceType = 'Section'
+
+  static createInstance() {
+    return new SectionInstance({
+      children: [],
+    })
+  }
+
+  appendChild(child: InstanceOrText) {
+    const enforcedChild = enforceType(child, [AccessoryInstance, MarkdownInstance, TextInstance])
+
+    if (enforcedChild instanceof AccessoryInstance) {
+      this.data.accessory = enforcedChild
+    }
+    else {
+      this.data.children.push(enforcedChild)
+    }
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.children = this.data.children.filter(text => text !== child)
+  }
+
+  addToOptions() {
+    throw new Error('Components v1 does not support <Section>.')
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    // These are ANNOYING to type so I will leave them as `any` for now
+    // because I am evil
+    const children = { components: [] as any[] }
+    const accessoryContainer = { components: [] as any[], files: [] }
+
+    for (const child of this.data.children) {
+      child.addToOptionsV2(children)
+    }
+
+    if (!this.data.accessory || !this.data.accessory.data.instance) {
+      throw new Error('No <Accessory> found. This is a bug!')
+    }
+
+    this.data.accessory.data.instance.addToOptionsV2(accessoryContainer)
+    options.files = [...options.files ?? [], ...accessoryContainer.files]
+    let accessory = accessoryContainer.components[0]
+
+    if (accessory.type === ComponentType.MediaGallery) {
+      accessory = {
+        ...accessory.items[0],
+        type: ComponentType.Thumbnail,
+      }
+    }
+    if (accessory.type === ComponentType.ActionRow) {
+      accessory = accessory.components[0]
+    }
+
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.Section,
+        accessory,
+        components: children.components,
+      },
+    ]
   }
 }
 
@@ -691,6 +1021,10 @@ export class SelectInstance extends BaseInstance<
       },
     ]
   }
+
+  addToOptionsV2(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
 }
 
 export class TextInstance extends BaseInstance<string> {
@@ -712,6 +1046,21 @@ export class TextInstance extends BaseInstance<string> {
       maskedLink: true,
       numberedList: true,
     })
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.TextDisplay,
+        content: escapeMarkdown(this.data, {
+          bulletedList: true,
+          heading: true,
+          maskedLink: true,
+          numberedList: true,
+        }),
+      },
+    ]
   }
 
   asText() {
@@ -758,9 +1107,8 @@ export class ThumbnailInstance extends BaseInstance<ThumbnailData> {
     }
   }
 
-  addToOptions() {
-
-  }
+  addToOptions() {}
+  addToOptionsV2() {}
 }
 
 export interface WhitelistProps {
@@ -793,21 +1141,29 @@ export class WhitelistInstance extends BaseInstance<{
       child.addToOptions(options)
     }
   }
+
+  addToOptionsV2(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
 }
 
 export type Instance =
+  | AccessoryInstance
   | ActionRowInstance
   | AnswerInstance
   | ButtonInstance
+  | DividerInstance
   | EmbedInstance
   | EmptyInstance
   | EphemeralInstance
   | FileInstance
   | FieldInstance
+  | GalleryInstance
   | ImageInstance
   | MarkdownInstance
   | OptionInstance
   | PollInstance
+  | SectionInstance
   | SelectInstance
   | ThumbnailInstance
   | WhitelistInstance

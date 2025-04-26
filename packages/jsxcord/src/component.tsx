@@ -10,17 +10,22 @@ import { createContext, createElement, useContext, useEffect, useState } from 'r
 import { streamResource } from './audio.js'
 import { useInteraction } from './index.js'
 import {
+  AccessoryInstance,
   ActionRowInstance,
   AnswerInstance,
   ButtonInstance,
+  ContainerInstance,
+  DividerInstance,
   EmbedInstance,
   EphemeralInstance,
   FieldInstance,
   FileInstance,
+  GalleryInstance,
   ImageInstance,
   MarkdownInstance,
   OptionInstance,
   PollInstance,
+  SectionInstance,
   SelectInstance,
   ThumbnailInstance,
   WhitelistInstance,
@@ -49,10 +54,12 @@ function createComponent<P, I extends Instance>(
   )
 }
 
+const Accessory = createComponent(AccessoryInstance)
 const Thumbnail = createComponent(ThumbnailInstance)
 
 export const ActionRow = createComponent(ActionRowInstance)
 export const Answer = createComponent(AnswerInstance)
+export const Container = createComponent(ContainerInstance)
 
 const RawButton = createComponent(ButtonInstance)
 
@@ -79,6 +86,8 @@ export function Embed(props: Parameters<typeof RawEmbed>[0] & { thumbnail?: Reac
 export const Ephemeral = createComponent(EphemeralInstance)
 export const Field = createComponent(FieldInstance)
 export const File = createComponent(FileInstance)
+export const Gallery = createComponent(GalleryInstance)
+export const Divider = createComponent(DividerInstance)
 
 export const ImageFilterContext = createContext(
   (src: string | ArrayBuffer): string | ArrayBuffer | Promise<string | ArrayBuffer> => src,
@@ -134,6 +143,18 @@ export function Option(props: Omit<Parameters<typeof RawOption>[0], 'emoji'> & {
 }
 
 export const Poll = createComponent(PollInstance)
+
+const RawSection = createComponent(SectionInstance)
+
+export function Section(props: Parameters<typeof RawSection>[0] & { accessory?: ReactNode }) {
+  return (
+    <RawSection>
+      {props.accessory && <Accessory>{props.accessory}</Accessory>}
+      {props.children}
+    </RawSection>
+  )
+}
+
 export const Select = createComponent(SelectInstance)
 
 function createMarkdownComponent<Props>(func: (input: string, props: Props) => string) {

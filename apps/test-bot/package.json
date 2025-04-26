@@ -3,7 +3,7 @@
   "type": "module",
   "module": "src/index.tsx",
   "scripts": {
-    "dev": "bun --watch src/index.tsx",
+    "dev": "bun --watch src/test.tsx",
     "build": "bun build.ts"
   },
   "peerDependencies": {

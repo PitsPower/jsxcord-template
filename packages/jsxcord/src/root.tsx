@@ -8,7 +8,7 @@ import { createContext, Suspense, useState } from 'react'
 import { Mixer } from './audio.js'
 import * as container from './container.js'
 import { EmojiContext } from './emoji.js'
-import { createMessageOptions, hydrateMessages, isMessageOptionsEmpty } from './message.js'
+import { createMessageOptions, hydrateMessages, isMessageOptionsEmpty } from './messagev2.js'
 import { MutationContext } from './mutation.js'
 import Renderer from './renderer.js'
 
@@ -153,14 +153,14 @@ export async function setupRoot(
           if (interaction.context === InteractionContextType.Guild) {
             messages[i] = await messages[i].edit({
               ...options,
-              flags: [],
+              flags: ['32768'],
             })
           }
           else {
             messages[i] = await interaction.editReply({
               ...options,
               message: messages[i],
-              flags: [],
+              flags: ['32768'],
             })
           }
         }
@@ -175,17 +175,17 @@ export async function setupRoot(
             messages[i] = messages[i] !== undefined
               ? await interaction.editReply({
                 ...options,
-                flags: [],
+                flags: ['32768'],
               })
               : await interaction.followUp({
                 ...options,
-                flags: options.flags ?? [],
+                flags: options.flags ?? ['32768'],
               })
           }
           else {
             const response = await interaction.reply({
               ...options,
-              flags: options.flags ?? [],
+              flags: options.flags ?? ['32768'],
             })
             messages[i] = await response.fetch()
           }
@@ -193,7 +193,7 @@ export async function setupRoot(
         else if (!isMessageOptionsEmpty(options)) {
           messages.push(await interaction.followUp({
             ...options,
-            flags: options.flags ?? [],
+            flags: options.flags ?? ['32768'],
           }))
         }
       }

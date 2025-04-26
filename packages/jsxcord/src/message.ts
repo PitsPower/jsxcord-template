@@ -130,7 +130,15 @@ function findComponentWithId<I extends ButtonInstance | SelectInstance>(
 export function hydrateMessages(messages: Message[], container: Container) {
   for (const message of messages) {
     for (const actionRow of message.components) {
+      if (!('components' in actionRow)) {
+        throw new Error('Expected components v1 messages. This is a bug!')
+      }
+
       for (const component of actionRow.components) {
+        if (!('customId' in component)) {
+          throw new Error('Expected components v1 messages. This is a bug!')
+        }
+
         if (
           component.customId === null
           || container.hydratedIds.includes(component.customId)
