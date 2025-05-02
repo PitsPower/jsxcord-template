@@ -17,11 +17,11 @@ export function createEmoji(name: string, src: string | Buffer): ManagedEmoji & 
   const CustomEmoji = () => {
     const { [name]: emoji } = useContext(EmojiContext)
 
-    if (emoji === undefined) {
+    if (emoji === undefined || emoji.name === null) {
       throw new Error(`Emoji "${name}" not registered`)
     }
 
-    return <Emoji name={emoji.name} id={emoji.id} />
+    return <Emoji name={emoji.name} />
   }
   CustomEmoji.__type = ManagedEmojiSymbol
   CustomEmoji.emojiName = name

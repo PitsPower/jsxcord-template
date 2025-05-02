@@ -84,7 +84,20 @@ export function Embed(props: Parameters<typeof RawEmbed>[0] & { thumbnail?: Reac
   )
 }
 
-export const Emoji = createComponent(EmojiInstance)
+const RawEmoji = createComponent(EmojiInstance)
+
+export function Emoji({ name }: { name: string }) {
+  const interaction = useInteraction()
+
+  const emoji = interaction.client.application.emojis.cache.find(emoji => emoji.name === name)
+
+  if (emoji === undefined) {
+    return <></>
+  }
+
+  return <RawEmoji name={emoji.name} id={emoji.id} />
+}
+
 export const Ephemeral = createComponent(EphemeralInstance)
 export const Field = createComponent(FieldInstance)
 export const File = createComponent(FileInstance)
