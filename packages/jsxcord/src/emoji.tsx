@@ -1,6 +1,7 @@
+import type { ApplicationEmoji } from 'discord.js'
 import fs from 'node:fs/promises'
 import { createContext, useContext } from 'react'
-import { Markdown } from './component.js'
+import { Emoji } from './component.js'
 
 export const ManagedEmojiSymbol = Symbol('ManagedEmoji')
 
@@ -10,23 +11,23 @@ export interface ManagedEmoji {
   emojiSrc: string | Buffer
 }
 
-export const EmojiContext = createContext<Record<string, string>>({})
+export const EmojiContext = createContext<Record<string, ApplicationEmoji>>({})
 
 export function createEmoji(name: string, src: string | Buffer): ManagedEmoji & React.FC<object> {
-  const Emoji = () => {
+  const CustomEmoji = () => {
     const { [name]: emoji } = useContext(EmojiContext)
 
     if (emoji === undefined) {
       throw new Error(`Emoji "${name}" not registered`)
     }
 
-    return <Markdown>{emoji}</Markdown>
+    return <Emoji name={emoji.name} id={emoji.id} />
   }
-  Emoji.__type = ManagedEmojiSymbol
-  Emoji.emojiName = name
-  Emoji.emojiSrc = src
+  CustomEmoji.__type = ManagedEmojiSymbol
+  CustomEmoji.emojiName = name
+  CustomEmoji.emojiSrc = src
 
-  return Emoji
+  return CustomEmoji
 }
 
 export async function createEmojisFromFolder(folderPath: string): Promise<Record<string, ManagedEmoji & React.FC<object>>> {

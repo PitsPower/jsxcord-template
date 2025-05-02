@@ -8,7 +8,7 @@
  * Various JSXcord-specific React hooks.
  */
 
-import type { ChatInputCommandInteraction } from 'discord.js'
+import type { ApplicationEmoji, ChatInputCommandInteraction } from 'discord.js'
 import type { ReactNode } from 'react'
 import type { ManagedEmoji } from './emoji.js'
 import type { AutocompleteFunction, ZodCommand } from './zod.js'
@@ -28,7 +28,7 @@ export * from './shared.js'
 export { createEmoji, createEmojisFromFolder, render }
 
 export interface JsxcordClient<Ready extends boolean = boolean> extends Client<Ready> {
-  emojiMap: Record<string, string>
+  emojiMap: Record<string, ApplicationEmoji>
   registerEmojis: (...emojis: (ManagedEmoji | Record<string, ManagedEmoji>)[]) => JsxcordClient<Ready>
 }
 
@@ -87,7 +87,7 @@ export function bot(
           throw new Error(`Failed to create emoji`)
         }
 
-        client.emojiMap[emoji.emojiName] = appEmoji.toString()
+        client.emojiMap[emoji.emojiName] = appEmoji
       }))
     })
 

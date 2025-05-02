@@ -17,6 +17,7 @@ import {
   ContainerInstance,
   DividerInstance,
   EmbedInstance,
+  EmojiInstance,
   EphemeralInstance,
   FieldInstance,
   FileInstance,
@@ -83,6 +84,7 @@ export function Embed(props: Parameters<typeof RawEmbed>[0] & { thumbnail?: Reac
   )
 }
 
+export const Emoji = createComponent(EmojiInstance)
 export const Ephemeral = createComponent(EphemeralInstance)
 export const Field = createComponent(FieldInstance)
 export const File = createComponent(FileInstance)
@@ -237,17 +239,6 @@ export function Audio({ src, onStart, onFinish, paused }: AudioProps) {
   }, [paused])
 
   return <></>
-}
-
-export function Emoji({ id }: { id: string }) {
-  const interaction = useInteraction()
-  const emoji = interaction.client.emojis.cache.get(id)
-
-  if (emoji === undefined) {
-    return <></>
-  }
-
-  return <Markdown>{emoji.toString()}</Markdown>
 }
 
 interface TimerProps {

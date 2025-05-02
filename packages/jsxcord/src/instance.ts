@@ -24,6 +24,7 @@ type JsxcordInstanceType =
   | 'Container'
   | 'Divider'
   | 'Embed'
+  | 'Emoji'
   | 'Empty'
   | 'Ephemeral'
   | 'Field'
@@ -159,7 +160,7 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
 
   appendChild(child: InstanceOrText) {
     if (child.getType() !== 'Button' && child.getType() !== 'Select') {
-      throw new Error('ActionRow can only contain Button and Select components')
+      throw new Error('<ActionRow> can only contain <Button> and <Select> components')
     }
 
     this.data.components.push(enforceType(child, [ButtonInstance, SelectInstance]))
@@ -172,7 +173,7 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
     }
   }
 
-  addToOptions(options: InteractionReplyOptions) {
+  addToOptionsGeneric(options: InteractionReplyOptions, v2: boolean) {
     if (this.data.components.length === 0) {
       return
     }
@@ -208,7 +209,7 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
 
     const actionRows = componentChunks.map(chunk => ({
       type: ComponentType.ActionRow,
-      components: chunk.map(c => c.toComponentJSON()),
+      components: chunk.map(c => v2 ? c.toComponentV2JSON() : c.toComponentJSON()),
     }))
 
     options.components = [
@@ -217,8 +218,12 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
     ]
   }
 
+  addToOptions(options: InteractionReplyOptions) {
+    this.addToOptionsGeneric(options, false)
+  }
+
   addToOptionsV2(options: InteractionReplyOptions) {
-    this.addToOptions(options)
+    this.addToOptionsGeneric(options, true)
   }
 }
 
@@ -247,7 +252,7 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
 
   addToOptions() {
     throw new Error(
-      'Attempted to add `AnswerInstance` to message options. Ensure all `Answer` components are in a `Poll` component.',
+      'Attempted to add an <Answer> to a non-<Poll>. Ensure all <Answer> components are in a <Poll> component.',
     )
   }
 
@@ -258,7 +263,7 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
 
 export interface ButtonProps {
   disabled?: boolean
-  emoji?: string | MarkdownInstance
+  emoji?: string | EmojiInstance
   style?: ButtonStyleString
   onClick?: (interaction: ButtonInteraction) => void | Promise<void>
 }
@@ -281,9 +286,9 @@ export class ButtonInstance extends BaseInstance<
   }
 
   appendChild(child: InstanceOrText) {
-    const enforcedChild = enforceType(child, [MarkdownInstance, TextInstance])
+    const enforcedChild = enforceType(child, [EmojiInstance, TextInstance])
 
-    if (enforcedChild instanceof MarkdownInstance) {
+    if (enforcedChild instanceof EmojiInstance) {
       this.data.emoji = enforcedChild
     }
     else {
@@ -301,7 +306,9 @@ export class ButtonInstance extends BaseInstance<
   toComponentJSON() {
     return {
       ...this.data,
-      emoji: typeof this.data.emoji === 'string' ? this.data.emoji : this.data.emoji?.asText(),
+      emoji: typeof this.data.emoji === 'string'
+        ? this.data.emoji
+        : `<:${this.data.emoji?.data.name}:${this.data.emoji?.data.id}>`,
       label: textInstancesToString(this.data.texts),
       style: buttonStyleMap[this.data.style ?? 'secondary'],
     }
@@ -311,7 +318,15 @@ export class ButtonInstance extends BaseInstance<
     return {
       ...this.data,
       custom_id: this.data.customId,
-      emoji: typeof this.data.emoji === 'string' ? this.data.emoji : this.data.emoji?.asText(),
+      emoji: typeof this.data.emoji === 'string'
+        ? {
+            name: this.data.emoji,
+            id: null,
+          }
+        : {
+            name: this.data.emoji?.data.name,
+            id: this.data.emoji?.data.id,
+          },
       label: textInstancesToString(this.data.texts),
       style: buttonStyleMap[this.data.style ?? 'secondary'],
     }
@@ -392,15 +407,15 @@ export class DividerInstance extends BaseInstance<{ small?: boolean }> {
   }
 
   appendChild() {
-    throw new Error('<Hr /> does not support children.')
+    throw new Error('<Divider> does not support children.')
   }
 
   removeChild() {
-    throw new Error('<Hr /> does not support children.')
+    throw new Error('<Divider> does not support children.')
   }
 
   addToOptions() {
-    throw new Error('Components v1 does not support <Hr />.')
+    throw new Error('Components v1 does not support <Divider>.')
   }
 
   addToOptionsV2(options: InteractionReplyOptions) {
@@ -542,6 +557,36 @@ export class EmbedInstance extends BaseInstance<EmbedData> {
   }
 }
 
+export class EmojiInstance extends BaseInstance<{ name: string | null, id: string }> {
+  static type: JsxcordInstanceType = 'Emoji'
+
+  static createInstance(props: { name: string | null, id: string }) {
+    return new EmojiInstance(props)
+  }
+
+  appendChild() {
+    throw new Error('<Emoji> does not support children.')
+  }
+
+  removeChild() {
+    throw new Error('<Emoji> does not support children.')
+  }
+
+  addToOptions() {
+    throw new Error('Components v1 does not support <Emoji>.')
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.TextDisplay,
+        content: `<:${this.data.name}:${this.data.id}>`,
+      },
+    ]
+  }
+}
+
 export class EphemeralInstance extends BaseInstance<{ children: InstanceOrText[] }> {
   static type: JsxcordInstanceType = 'Ephemeral'
 
@@ -589,7 +634,7 @@ export class FieldInstance extends BaseInstance<FieldProps & { children: (Instan
 
   appendChild(child: InstanceOrText) {
     if (!('asText' in child)) {
-      throw new Error('Cannot append a child to `Field` that cannot be converted to text.')
+      throw new Error('Cannot append a child to <Field> that cannot be converted to text.')
     }
 
     this.data.children.push(child)
@@ -601,7 +646,7 @@ export class FieldInstance extends BaseInstance<FieldProps & { children: (Instan
 
   addToOptions() {
     throw new Error(
-      'Attempted to add `FieldInstance` to message options. Ensure all `Field` components are in an `Embed` component.',
+      'Attempted to add a <Field> to a non-<Embed>. Ensure all <Field> components are in an <Embed> component.',
     )
   }
 
@@ -623,11 +668,11 @@ export class FileInstance extends BaseInstance<FileProps> {
   }
 
   appendChild() {
-    throw new Error('Cannot append a child to `File`.')
+    throw new Error('<File> does not support children.')
   }
 
   removeChild() {
-    throw new Error('Cannot remove a child from `File`.')
+    throw new Error('<File> does not support children.')
   }
 
   addToOptions(options: InteractionReplyOptions) {
@@ -715,11 +760,11 @@ export class ImageInstance extends BaseInstance<ImageProps> {
   }
 
   appendChild() {
-    throw new Error('Cannot append a child to `Image`.')
+    throw new Error('<Img> does not support children.')
   }
 
   removeChild() {
-    throw new Error('Cannot remove a child from `Image`.')
+    throw new Error('<Img> does not support children.')
   }
 
   addToOptions(options: InteractionReplyOptions) {
@@ -842,7 +887,7 @@ export class OptionInstance extends BaseInstance<
 
   addToOptions() {
     throw new Error(
-      'Attempted to add `OptionInstance` to message options. Ensure all `Option` components are in a `Select` component.',
+      'Attempted to add an <Option> to a non-<Select>. Ensure all <Option> components are in a <Select> component.',
     )
   }
 
@@ -1012,6 +1057,18 @@ export class SelectInstance extends BaseInstance<
     }
   }
 
+  toComponentV2JSON() {
+    return {
+      ...this.data,
+      options: this.data.options.map(option => ({
+        ...option.data,
+        emoji: typeof option.data.emoji === 'string' ? option.data.emoji : option.data.emoji?.asText(),
+        label: textInstancesToString(option.data.label),
+        value: option.data.value ?? textInstancesToString(option.data.label),
+      })),
+    }
+  }
+
   addToOptions(options: InteractionReplyOptions) {
     options.components = [
       ...(options.components ?? []),
@@ -1143,7 +1200,9 @@ export class WhitelistInstance extends BaseInstance<{
   }
 
   addToOptionsV2(options: InteractionReplyOptions) {
-    this.addToOptions(options)
+    for (const child of this.data.children) {
+      child.addToOptionsV2(options)
+    }
   }
 }
 
@@ -1154,6 +1213,7 @@ export type Instance =
   | ButtonInstance
   | DividerInstance
   | EmbedInstance
+  | EmojiInstance
   | EmptyInstance
   | EphemeralInstance
   | FileInstance
