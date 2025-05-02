@@ -615,8 +615,12 @@ export class EphemeralInstance extends BaseInstance<{ children: InstanceOrText[]
     options.flags = new BitField(options.flags).add(MessageFlags.Ephemeral)
   }
 
-  addToOptionsV2(_options: InteractionReplyOptions) {
-    throw new Error('Not implemented')
+  addToOptionsV2(options: InteractionReplyOptions) {
+    for (const child of this.data.children) {
+      child.addToOptionsV2(options)
+    }
+
+    options.flags = new BitField(options.flags).add(MessageFlags.Ephemeral)
   }
 }
 
