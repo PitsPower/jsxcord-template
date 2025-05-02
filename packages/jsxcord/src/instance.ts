@@ -377,7 +377,7 @@ export class ContainerInstance extends BaseInstance<ContainerProps & { children:
       ...(options.components ?? []),
       {
         type: ComponentType.Container,
-        accent_color: Color(this.data.color).rgbNumber(),
+        accent_color: this.data.color ? Color(this.data.color).rgbNumber() : undefined,
         components: children.components,
       },
     ]
