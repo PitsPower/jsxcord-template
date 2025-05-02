@@ -1,6 +1,7 @@
 import type { ColorLike } from 'color'
 import type {
   APIMediaGalleryItem,
+  APIMessageComponentEmoji,
   BaseMessageOptions,
   ButtonInteraction,
   InteractionButtonComponentData,
@@ -72,6 +73,21 @@ function enforceType<Class extends { type: JsxcordInstanceType, new(data: any): 
 
 function textInstancesToString(instances: TextInstance[]) {
   return instances.map(instance => instance.data).join('')
+}
+
+function emojiToApiEmoji(emoji: string | EmojiInstance | undefined): APIMessageComponentEmoji | undefined {
+  if (emoji === undefined) {
+    return undefined
+  }
+  else if (typeof emoji === 'string') {
+    return { name: emoji }
+  }
+  else {
+    return {
+      name: emoji.data.name ?? undefined,
+      id: emoji.data.id,
+    }
+  }
 }
 
 abstract class BaseInstance<Data> {
@@ -318,15 +334,7 @@ export class ButtonInstance extends BaseInstance<
     return {
       ...this.data,
       custom_id: this.data.customId,
-      emoji: typeof this.data.emoji === 'string'
-        ? {
-            name: this.data.emoji,
-            id: null,
-          }
-        : {
-            name: this.data.emoji?.data.name,
-            id: this.data.emoji?.data.id,
-          },
+      emoji: emojiToApiEmoji(this.data.emoji),
       label: textInstancesToString(this.data.texts),
       style: buttonStyleMap[this.data.style ?? 'secondary'],
     }
@@ -847,7 +855,7 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
 
 type InternalSelectMenuComponentOptionData =
   Omit<SelectMenuComponentOptionData, 'label' | 'value'> & {
-    emoji?: string | MarkdownInstance
+    emoji?: string | EmojiInstance
     label: TextInstance[]
     value?: string
   }
@@ -875,9 +883,9 @@ export class OptionInstance extends BaseInstance<
   }
 
   appendChild(child: InstanceOrText) {
-    const enforcedChild = enforceType(child, [MarkdownInstance, TextInstance])
+    const enforcedChild = enforceType(child, [EmojiInstance, TextInstance])
 
-    if (enforcedChild instanceof MarkdownInstance) {
+    if (enforcedChild instanceof EmojiInstance) {
       this.data.emoji = enforcedChild
     }
     else {
@@ -895,8 +903,8 @@ export class OptionInstance extends BaseInstance<
     )
   }
 
-  addToOptionsV2(_options: InteractionReplyOptions) {
-    throw new Error('Not implemented')
+  addToOptionsV2() {
+    this.addToOptions()
   }
 }
 
@@ -1054,7 +1062,9 @@ export class SelectInstance extends BaseInstance<
       ...this.data,
       options: this.data.options.map(option => ({
         ...option.data,
-        emoji: typeof option.data.emoji === 'string' ? option.data.emoji : option.data.emoji?.asText(),
+        emoji: typeof option.data.emoji === 'string'
+          ? option.data.emoji
+          : `<:${option.data.emoji?.data.name}:${option.data.emoji?.data.id}>`,
         label: textInstancesToString(option.data.label),
         value: option.data.value ?? textInstancesToString(option.data.label),
       })),
@@ -1066,7 +1076,7 @@ export class SelectInstance extends BaseInstance<
       ...this.data,
       options: this.data.options.map(option => ({
         ...option.data,
-        emoji: typeof option.data.emoji === 'string' ? option.data.emoji : option.data.emoji?.asText(),
+        emoji: emojiToApiEmoji(option.data.emoji),
         label: textInstancesToString(option.data.label),
         value: option.data.value ?? textInstancesToString(option.data.label),
       })),
@@ -1083,8 +1093,14 @@ export class SelectInstance extends BaseInstance<
     ]
   }
 
-  addToOptionsV2(_options: InteractionReplyOptions) {
-    throw new Error('Not implemented')
+  addToOptionsV2(options: InteractionReplyOptions) {
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.ActionRow,
+        components: [this.toComponentV2JSON()],
+      },
+    ]
   }
 }
 
