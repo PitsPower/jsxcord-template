@@ -1142,8 +1142,8 @@ export class WhitelistInstance extends BaseInstance<{
     }
   }
 
-  addToOptionsV2(_options: InteractionReplyOptions) {
-    throw new Error('Not implemented')
+  addToOptionsV2(options: InteractionReplyOptions) {
+    this.addToOptions(options)
   }
 }
 
