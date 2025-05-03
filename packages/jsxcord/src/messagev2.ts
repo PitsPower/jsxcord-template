@@ -25,8 +25,10 @@ import {
   WhitelistInstance,
 } from './instance.js'
 
+type Writeable<T> = { -readonly [P in keyof T]: Writeable<T[P]> }
+
 export function createMessageOptions(container: Container): InteractionReplyOptions[] {
-  const currentOptions: InteractionReplyOptions = {
+  const currentOptions: Writeable<InteractionReplyOptions> = {
     components: [],
     flags: MessageFlags.IsComponentsV2,
   }
@@ -37,10 +39,18 @@ export function createMessageOptions(container: Container): InteractionReplyOpti
       continue
     }
 
-    child.addToOptionsV2(currentOptions)
+    child.addToOptionsV2(currentOptions as InteractionReplyOptions, container)
   }
 
-  return result
+  if (currentOptions.files && currentOptions.files.length > 0) {
+    for (const [name, attachment] of Object.entries(container.attachments)) {
+      if (!currentOptions.files.find(file => (file as { name: string }).name === name)) {
+        currentOptions.files.push({ name, attachment })
+      }
+    }
+  }
+
+  return result as InteractionReplyOptions[]
 }
 
 interface InstanceWithWhitelist<I extends Instance> {

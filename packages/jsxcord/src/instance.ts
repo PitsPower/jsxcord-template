@@ -12,9 +12,11 @@ import type {
   StringSelectMenuComponentData,
   StringSelectMenuInteraction,
 } from 'discord.js'
+import type { Container } from './container.js'
 import Color from 'color'
 import { BitField, ButtonStyle, ComponentType, escapeMarkdown, MessageFlags } from 'discord.js'
 import { v4 as uuidv4 } from 'uuid'
+import { shouldAttach } from './container.js'
 
 type JsxcordInstanceType =
   | 'Accessory'
@@ -102,7 +104,7 @@ abstract class BaseInstance<Data> {
   abstract appendChild(child: InstanceOrText): void
   abstract removeChild(child: InstanceOrText): void
   abstract addToOptions(options: InteractionReplyOptions): void
-  abstract addToOptionsV2(options: InteractionReplyOptions): void
+  abstract addToOptionsV2(options: InteractionReplyOptions, container: Container): void
 }
 
 export interface AnswerProps {
@@ -387,11 +389,11 @@ export class ContainerInstance extends BaseInstance<ContainerProps & { children:
     throw new Error('Components v1 does not support <Container>. Use <Embed> instead.')
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
     const children = { components: [], files: [] }
 
     for (const child of this.data.children) {
-      child.addToOptionsV2(children)
+      child.addToOptionsV2(children, container)
     }
 
     options.files = [...(options.files ?? []), ...children.files]
@@ -623,9 +625,9 @@ export class EphemeralInstance extends BaseInstance<{ children: InstanceOrText[]
     options.flags = new BitField(options.flags).add(MessageFlags.Ephemeral)
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
     for (const child of this.data.children) {
-      child.addToOptionsV2(options)
+      child.addToOptionsV2(options, container)
     }
 
     options.flags = new BitField(options.flags).add(MessageFlags.Ephemeral)
@@ -723,19 +725,23 @@ export class GalleryInstance extends BaseInstance<{ images: ImageInstance[] }> {
     throw new Error('Components v1 does not support <Gallery>.')
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
     const mediaGalleryItems: APIMediaGalleryItem[] = []
     const files: Writeable<BaseMessageOptions['files']> = []
 
     this.data.images.forEach((image, index) => {
       const fileName = image.data.name ?? `gallery${index}.png`
 
-      files.push({
+      const attachment = {
         name: fileName,
         attachment: typeof image.data.src === 'string'
           ? image.data.src
           : Buffer.from(image.data.src),
-      })
+      }
+
+      if (shouldAttach(container, attachment)) {
+        files.push(attachment)
+      }
 
       mediaGalleryItems.push({
         media: { url: `attachment://${fileName}` },
@@ -743,10 +749,12 @@ export class GalleryInstance extends BaseInstance<{ images: ImageInstance[] }> {
       })
     })
 
-    options.files = [
-      ...(options.files ?? []),
-      ...files,
-    ]
+    if (files.length > 0) {
+      options.files = [
+        ...(options.files ?? []),
+        ...files,
+      ]
+    }
 
     options.components = [
       ...(options.components ?? []),
@@ -791,18 +799,22 @@ export class ImageInstance extends BaseInstance<ImageProps> {
     ]
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
     const fileName = this.data.name ?? 'image.png'
 
-    options.files = [
-      ...(options.files ?? []),
-      {
-        name: fileName,
-        attachment: typeof this.data.src === 'string'
-          ? this.data.src
-          : Buffer.from(this.data.src),
-      },
-    ]
+    const attachment = {
+      name: fileName,
+      attachment: typeof this.data.src === 'string'
+        ? this.data.src
+        : Buffer.from(this.data.src),
+    }
+
+    if (shouldAttach(container, attachment)) {
+      options.files = [
+        ...(options.files ?? []),
+        attachment,
+      ]
+    }
 
     options.components = [
       ...(options.components ?? []),
@@ -988,7 +1000,7 @@ export class SectionInstance extends BaseInstance<SectionData> {
     throw new Error('Components v1 does not support <Section>.')
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
     // These are ANNOYING to type so I will leave them as `any` for now
     // because I am evil
     const children = { components: [] as any[] }
@@ -1002,7 +1014,7 @@ export class SectionInstance extends BaseInstance<SectionData> {
       throw new Error('No <Accessory> found. This is a bug!')
     }
 
-    this.data.accessory.data.instance.addToOptionsV2(accessoryContainer)
+    this.data.accessory.data.instance.addToOptionsV2(accessoryContainer, container)
     options.files = [...options.files ?? [], ...accessoryContainer.files]
     let accessory = accessoryContainer.components[0]
 
@@ -1219,9 +1231,9 @@ export class WhitelistInstance extends BaseInstance<{
     }
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
     for (const child of this.data.children) {
-      child.addToOptionsV2(options)
+      child.addToOptionsV2(options, container)
     }
   }
 }
