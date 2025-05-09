@@ -32,7 +32,7 @@ export async function showModal<T extends z.ZodRawShape>(
 
   const response = await interaction.awaitModalSubmit({
     filter: i => i.customId === modalWithSchema.modal.data.custom_id,
-    time: timeoutMs ?? (2 ** 32 - 1),
+    time: timeoutMs ?? (2 ** 31 - 1),
   })
 
   response.deferUpdate()
