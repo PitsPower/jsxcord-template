@@ -308,6 +308,7 @@ let totalFfmpegInstances = 0
 /** Converts a file path or stream to a PCM stream */
 export function streamResource(
   resource: string | Buffer | Readable | ReadableStream | NodeJS.ReadableStream,
+  ffmpegOptions?: { inputArgs?: string }
 ): Readable {
   totalFfmpegInstances += 1
   if (totalFfmpegInstances > 5) {
@@ -336,7 +337,7 @@ export function streamResource(
    *    so the process doesn't end before all the audio has played
    */
   const ffmpeg = new FFmpeg({
-    args: `-re -i ${typeof resource === 'string' ? resource : 'pipe:'} -ar 48k -ac 2 -af apad=pad_dur=2 -f s16le -rtbufsize 1 -blocksize 1 -flush_packets 1`.split(' '),
+    args: `-re ${ffmpegOptions?.inputArgs ? `${ffmpegOptions.inputArgs} ` : ''}-i ${typeof resource === 'string' ? resource : 'pipe:'} -ar 48k -ac 2 -af apad=pad_dur=2 -f s16le -rtbufsize 1 -blocksize 1 -flush_packets 1`.split(' '),
     source: 'ffmpeg',
   })
 

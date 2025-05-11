@@ -214,9 +214,10 @@ export interface AudioProps {
   onStart?: () => void
   onFinish?: () => void
   paused?: boolean
+  ffmpeg?: { inputArgs?: string }
 }
 
-export function Audio({ src, onStart, onFinish, paused }: AudioProps) {
+export function Audio({ src, onStart, onFinish, paused, ffmpeg }: AudioProps) {
   const audioContext = useContext(AudioContext)
   const [track, setTrack] = useState<TrackHandle | null>(null)
 
@@ -227,6 +228,7 @@ export function Audio({ src, onStart, onFinish, paused }: AudioProps) {
       typeof src === 'string' && !isUrl(src)
         ? path.resolve(src)
         : src,
+      ffmpeg
     )
 
     const track = audioContext?.mixer.playTrack(stream, paused) ?? null
