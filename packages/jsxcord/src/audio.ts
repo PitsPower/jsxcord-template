@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { Readable, Transform } from 'node:stream'
+import { Readable, Transform, TransformCallback, TransformOptions } from 'node:stream'
 import { createAudioResource, StreamType } from '@discordjs/voice'
 import FFmpeg from './ffmpeg.js'
 
@@ -16,6 +16,7 @@ export type TrackHandle = number
  */
 export class Mixer extends Readable {
   private tracks: Record<TrackHandle, Readable> = {}
+  private endListeners: Record<TrackHandle, (() => void | Promise<void>)[]> = {}
 
   // Fixed number of streams that get merged
   // Tracks added to the mixer get allocated to a stream
@@ -43,7 +44,7 @@ export class Mixer extends Readable {
       const results: Buffer[] = []
 
       // Read the streams
-      for (const stream of this.streams.filter(stream => !stream.mixerStream.isPaused())) {
+      for (const stream of this.streams.filter(stream => stream.mixerStream.isReady)) {
         let result: Buffer | null = null
         while (result === null) {
           result = stream.mixerStream.read(bytesToRead) as Buffer | null
@@ -62,6 +63,7 @@ export class Mixer extends Readable {
         )
       }
 
+      // console.log(mergedResult)
       this.push(mergedResult)
     }
 
@@ -120,6 +122,27 @@ export class Mixer extends Readable {
     return handle
   }
 
+  onTrackEnd(handle: TrackHandle, func: () => void | Promise<void>) {
+    this.endListeners[handle] = [
+      ...(this.endListeners[handle] ?? []),
+      func
+    ]
+  }
+
+  offTrackEnd(handle: TrackHandle, func: () => void | Promise<void>) {
+    if (!this.endListeners[handle]) {
+      return
+    }
+    
+    this.endListeners[handle] = this.endListeners[handle].filter(
+      listener => listener !== func
+    )
+    
+    if (this.endListeners[handle].length === 0) {
+      delete this.endListeners[handle]
+    }
+  }
+
   private getStreamFromHandle(handle: TrackHandle) {
     const result = this.streams.find(s => s.allocation === handle)
     return result?.mixerStream
@@ -139,6 +162,13 @@ export class Mixer extends Readable {
 
   /** Stops a track */
   stopTrack(handle: TrackHandle) {
+    if (this.endListeners[handle]) {
+      for (const handler of this.endListeners[handle]) {
+        // console.log('ended', handle)
+        handler()
+      }
+    }
+
     this.getStreamFromHandle(handle)?.pauseStream()
     this.removeAllocation(handle)
   }
@@ -162,6 +192,22 @@ export class Mixer extends Readable {
   }
 }
 
+class DataWaitPassThroughStream extends Transform {
+  dataIsReady: boolean = false;
+
+  constructor(opts?: TransformOptions) {
+    super(opts);
+  }
+
+  _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback) {
+    if (!this.dataIsReady) {
+      this.dataIsReady = true;
+      this.emit('ready');
+    }
+    callback(null, chunk);
+  }
+}
+
 /** An individual stream in a `Mixer`, which supports pausing */
 class MixerStream extends Readable {
   private time = performance.now()
@@ -170,6 +216,9 @@ class MixerStream extends Readable {
 
   /** The stream's volume */
   public volume = 1
+
+  /** Whether the stream is ready */
+  public isReady = false
 
   /**
    * Reads from the stream,
@@ -220,7 +269,10 @@ class MixerStream extends Readable {
 
   /** Plays a new stream */
   play(stream: Readable) {
-    this.stream = stream
+    this.stream = stream.pipe(new DataWaitPassThroughStream())
+    this.stream.on('ready', () => {
+      this.isReady = true
+    })
     this.isStreamPaused = false
   }
 
@@ -251,10 +303,17 @@ function bunStreamToNodeJsSteam(stream: ReadableStream) {
   return nodeStream
 }
 
+let totalFfmpegInstances = 0
+
 /** Converts a file path or stream to a PCM stream */
 export function streamResource(
   resource: string | Buffer | Readable | ReadableStream | NodeJS.ReadableStream,
 ): Readable {
+  totalFfmpegInstances += 1
+  if (totalFfmpegInstances > 5) {
+    throw new Error('TOO MANY FFMPEG!!!')
+  }
+
   /**
    * Quite a lot going on here! Let's explain all of it here.
    *
@@ -279,6 +338,10 @@ export function streamResource(
   const ffmpeg = new FFmpeg({
     args: `-re -i ${typeof resource === 'string' ? resource : 'pipe:'} -ar 48k -ac 2 -af apad=pad_dur=2 -f s16le -rtbufsize 1 -blocksize 1 -flush_packets 1`.split(' '),
     source: 'ffmpeg',
+  })
+
+  ffmpeg.once('end', () => {
+    totalFfmpegInstances -= 1
   })
 
   if (typeof resource !== 'string') {

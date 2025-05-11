@@ -229,16 +229,22 @@ export function Audio({ src, onStart, onFinish, paused }: AudioProps) {
         : src,
     )
 
-    onStart?.()
-    stream.once('end', () => onFinish?.())
-
     const track = audioContext?.mixer.playTrack(stream, paused) ?? null
     setTrack(track)
 
+    onStart?.()
+    if (track && onFinish) {
+      audioContext?.mixer.onTrackEnd(track, onFinish)
+    }
+
     return () => {
       if (track) {
+        if (onFinish) {
+          audioContext?.mixer.offTrackEnd(track, onFinish)
+        }
         audioContext?.mixer.stopTrack(track)
       }
+
       setTrack(null)
     }
   }, [])

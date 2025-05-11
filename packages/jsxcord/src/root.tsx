@@ -60,7 +60,11 @@ function createWrapper(
               adapterCreator: voiceChannel.guild.voiceAdapterCreator,
             })
 
-            const player = createAudioPlayer()
+            const player = createAudioPlayer({
+              behaviors: {
+                maxMissedFrames: Infinity
+              }
+            })
             connection.subscribe(player)
 
             player.play(mixer.getAudioResource())
