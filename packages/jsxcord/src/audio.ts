@@ -193,23 +193,23 @@ export class Mixer extends Readable {
 }
 
 class DataWaitPassThroughStream extends Transform {
-  dataIsReady: boolean = false;
+  dataIsReady: boolean = false
 
   constructor(opts?: TransformOptions) {
-    super(opts);
+    super(opts)
   }
 
-  _transform(chunk: any, encoding: BufferEncoding, callback: TransformCallback) {
+  _transform(chunk: any, _encoding: BufferEncoding, callback: TransformCallback) {
     if (!this.dataIsReady) {
-      this.dataIsReady = true;
-      this.emit('ready');
+      this.dataIsReady = true
+      this.emit('ready')
     }
-    callback(null, chunk);
+    callback(null, chunk)
   }
 }
 
 /** An individual stream in a `Mixer`, which supports pausing */
-class MixerStream extends Readable {
+export class MixerStream extends Readable {
   private time = performance.now()
   private stream: Readable | null = null
   private isStreamPaused = false
@@ -233,11 +233,14 @@ class MixerStream extends Readable {
       // Multiply by 48 * 2 * 2 because 48Khz with 2 bytes per sample and 2 channels
       const bytesToSend = MS_PER_SEND * 48 * 2 * 2
 
-      if (this.stream !== null && !this.isStreamPaused) {
+      if (this.stream !== null) {
         let data: Buffer | null = null
 
-        while (data === null && !this.isStreamPaused) {
+        while (data === null) {
           data = this.stream.read(bytesToSend) as Buffer | null
+          if (this.isStreamPaused) {
+            break
+          }
           await new Promise<void>(setImmediate)
         }
 
@@ -269,6 +272,7 @@ class MixerStream extends Readable {
 
   /** Plays a new stream */
   play(stream: Readable) {
+    this.isReady = false
     this.stream = stream.pipe(new DataWaitPassThroughStream())
     this.stream.on('ready', () => {
       this.isReady = true
@@ -311,7 +315,7 @@ export function streamResource(
   ffmpegOptions?: { inputArgs?: string }
 ): Readable {
   totalFfmpegInstances += 1
-  if (totalFfmpegInstances > 5) {
+  if (totalFfmpegInstances > 20) {
     throw new Error('TOO MANY FFMPEG!!!')
   }
 
@@ -341,7 +345,7 @@ export function streamResource(
     source: 'ffmpeg',
   })
 
-  ffmpeg.once('end', () => {
+  ffmpeg.once('finish', () => {
     totalFfmpegInstances -= 1
   })
 

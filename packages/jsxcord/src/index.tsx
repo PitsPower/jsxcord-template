@@ -19,6 +19,7 @@ import { render, setupRoot } from './root.js'
 import { sync } from './util.js'
 import { buildZodTypeForCommand, getOptionsAsObject } from './zod.js'
 
+export * from './audio.js'
 export * from './async.js'
 export * from './component.js'
 export * from './hook.js'
