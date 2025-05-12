@@ -44,13 +44,16 @@ export class Mixer extends Readable {
       const results: Buffer[] = []
 
       // Read the streams
-      for (const stream of this.streams.filter(stream => stream.mixerStream.isReady)) {
-        let result: Buffer | null = null
-        while (result === null) {
-          result = stream.mixerStream.read(bytesToRead) as Buffer | null
-          await new Promise<void>(setImmediate)
+      for (const stream of this.streams) {
+        const result = stream.mixerStream.read(bytesToRead) as Buffer | null
+        if (result) {
+          results.push(result)
         }
-        results.push(result)
+      }
+
+      if (results.length === 0) {
+        this.push(Buffer.from([0, 0]))
+        return
       }
 
       // Merge the streams
@@ -63,7 +66,6 @@ export class Mixer extends Readable {
         )
       }
 
-      // console.log(mergedResult)
       this.push(mergedResult)
     }
 
@@ -86,7 +88,8 @@ export class Mixer extends Readable {
 
   /** Gets the mixer's `AudioResource` */
   getAudioResource() {
-    return createAudioResource(this, { inputType: StreamType.Raw })
+    const resource = createAudioResource(this, { inputType: StreamType.Raw })
+    return resource
   }
 
   /** Plays a track */
@@ -246,36 +249,33 @@ export class MixerStream extends Readable {
     const sendBytes = async () => {
       const bytesToSend = MS_PER_SEND * this.bitrate / 1000 * this.channels * this.bytesPerChannel
 
-      if (this.stream !== null) {
-        let data: Buffer | null = null
-
-        while (data === null) {
-          data = this.stream.read(bytesToSend) as Buffer | null
-          if (this.isStreamPaused) {
-            break
-          }
-          await new Promise<void>(setImmediate)
-        }
-
-        if (data === null) {
-          this.push(Buffer.alloc(bytesToSend, 0))
-          return
-        }
-
-        const dataWithVolume = Buffer.alloc(data.length)
-
-        for (let i = 0; i < data.length / 2; i++) {
-          dataWithVolume.writeInt16LE(
-            data.readInt16LE(i * 2) * this.volume,
-            i * 2,
-          )
-        }
-
-        this.push(dataWithVolume)
+      if (this.stream === null) {
+        this.push(Buffer.from([0, 0]))
+        return
       }
-      else {
-        this.push(Buffer.alloc(bytesToSend, 0))
+
+      let data = this.stream.read(bytesToSend)
+      if (data === null) {
+        this.push(Buffer.from([0, 0]))
+        return
       }
+
+      if (data.length < bytesToSend) {
+        const padded = Buffer.alloc(bytesToSend)
+        data.copy(padded)
+        data = padded
+      }
+
+      const dataWithVolume = Buffer.alloc(data.length)
+
+      for (let i = 0; i < data.length / 2; i++) {
+        dataWithVolume.writeInt16LE(
+          data.readInt16LE(i * 2) * this.volume,
+          i * 2,
+        )
+      }
+
+      this.push(dataWithVolume)
     }
 
     timeTilNextSend > 0
@@ -285,8 +285,8 @@ export class MixerStream extends Readable {
 
   /** Plays a new stream */
   play(stream: Readable) {
-    this.isReady = false
     this.stream = stream.pipe(new DataWaitPassThroughStream())
+    this.isReady = false
     this.stream.on('ready', () => {
       this.isReady = true
     })
@@ -295,11 +295,15 @@ export class MixerStream extends Readable {
 
   /** Pauses the current stream */
   pauseStream() {
+    this.isReady = false
     this.isStreamPaused = true
   }
 
   /** Resumes the current stream */
   resumeStream() {
+    this.stream?.on('ready', () => {
+      this.isReady = true
+    })
     this.isStreamPaused = false
   }
 }
@@ -354,7 +358,7 @@ export function streamResource(
    *    so the process doesn't end before all the audio has played
    */
   const ffmpeg = new FFmpeg({
-    args: `-re ${ffmpegOptions?.inputArgs ? `${ffmpegOptions.inputArgs} ` : ''}-i ${typeof resource === 'string' ? resource : 'pipe:'} -ar 48k -ac 2 -af apad=pad_dur=2 -f s16le -rtbufsize 1 -blocksize 1 -flush_packets 1`.split(' '),
+    args: `-fflags nobuffer -probesize 32 -analyzeduration 0 ${ffmpegOptions?.inputArgs ? `${ffmpegOptions.inputArgs} ` : ''}-i ${typeof resource === 'string' ? resource : 'pipe:'} -ar 48k -ac 2 -af apad=pad_dur=2 -flush_packets 1 -f s16le`.split(' '),
     source: 'ffmpeg',
   })
 
@@ -374,8 +378,8 @@ export function streamResource(
     }
   }
 
-  // // eslint-disable-next-line no-console
-  // ffmpeg.process.stderr?.on('data', data => console.log(data.toString()))
+  // eslint-disable-next-line no-console
+  ffmpeg.process.stderr?.on('data', data => console.log(data.toString()))
 
   return ffmpeg
 }
