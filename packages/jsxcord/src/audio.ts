@@ -220,6 +220,20 @@ export class MixerStream extends Readable {
   /** Whether the stream is ready */
   public isReady = false
 
+  private bitrate = 48000
+  private channels = 2
+  private bytesPerChannel = 2
+
+  constructor(options?: { bitrate: number, channels: number, bytesPerChannel: number }) {
+    super()
+
+    if (options) {
+      this.bitrate = options.bitrate
+      this.channels = options.channels
+      this.bytesPerChannel = options.bytesPerChannel
+    }
+  }
+
   /**
    * Reads from the stream,
    * which outputs silence if nothing is playing
@@ -230,8 +244,7 @@ export class MixerStream extends Readable {
     const timeTilNextSend = MS_PER_SEND - elapsed
 
     const sendBytes = async () => {
-      // Multiply by 48 * 2 * 2 because 48Khz with 2 bytes per sample and 2 channels
-      const bytesToSend = MS_PER_SEND * 48 * 2 * 2
+      const bytesToSend = MS_PER_SEND * this.bitrate / 1000 * this.channels * this.bytesPerChannel
 
       if (this.stream !== null) {
         let data: Buffer | null = null
