@@ -146,6 +146,7 @@ interface SharedState<DataOrSchema> {
   readonly _type: 'global' | 'guild' | 'user'
   readonly _initialValue: DataOrSchema
   readonly _isWatching: boolean
+  readonly _timeoutMs?: number
   readonly _dataStore: DataStore<ActualData<DataOrSchema>>
   readonly _cache: Record<string, Promise<ActualData<DataOrSchema>>>
 }
@@ -169,8 +170,8 @@ export const createGlobalState = createSharedStateFunc('global')
 export const createGuildState = createSharedStateFunc('guild')
 export const createUserState = createSharedStateFunc('user')
 
-export function watch<Data>(sharedState: SharedState<Data>): SharedState<Data> {
-  return { ...sharedState, _isWatching: true }
+export function watch<Data>(sharedState: SharedState<Data>, timeoutMs?: number): SharedState<Data> {
+  return { ...sharedState, _timeoutMs: timeoutMs, _isWatching: true }
 }
 
 function getInitialValue<DataOrSchema>(sharedState: SharedState<DataOrSchema>) {
@@ -227,6 +228,9 @@ export function useSharedState<DataOrSchema>(
   // The internal state where the value is stored
   const [state, setState] = useState(value)
 
+  // Keep track of when we made the shared state
+  const [createdAt] = useState(Date.now)
+
   // Stores the value, and parses the zod schema if it's given
   const newSetState = sync(async (transition: (prevState: Data) => Data) => {
     const newTransition = sharedState._initialValue instanceof ZodType
@@ -243,7 +247,7 @@ export function useSharedState<DataOrSchema>(
   // Watch for changes
   if (sharedState._isWatching) {
     sharedState._dataStore.once('change', ({ key: k, value: v }) => {
-      if (k === key) {
+      if (k === key && (!sharedState._timeoutMs || Date.now() - createdAt < sharedState._timeoutMs)) {
         setState(v)
       }
     })
