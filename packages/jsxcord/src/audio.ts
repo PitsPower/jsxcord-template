@@ -117,9 +117,31 @@ export class Mixer extends Readable {
     }
 
     // Remove allocation once stream has ended
+    // This is done by counting the total number of samples in the stream
+    // and then delaying by the correct around
+
+    let streamLength = 0
+    stream.on('data', (chunk: Buffer) => {
+      streamLength += chunk.length
+    })
+
+    const startTime = Date.now()
+
     stream.once('end', () => {
-      if (unallocatedStream.allocation === handle) {
-        this.stopTrack(handle)
+      const totalMs = streamLength / 48 / 2 / 2
+      const msToWait = totalMs - (Date.now() - startTime)
+
+      if (msToWait <= 0) {
+        if (unallocatedStream.allocation === handle) {
+          this.stopTrack(handle)
+        }
+      }
+      else {
+        setTimeout(() => {
+          if (unallocatedStream.allocation === handle) {
+            this.stopTrack(handle)
+          }
+        }, msToWait)
       }
     })
 
@@ -189,7 +211,6 @@ export class Mixer extends Readable {
 
   /** Sets the track volume */
   setTrackVolume(handle: TrackHandle, volume: number) {
-    console.log('setting volume')
     const stream = this.getStreamFromHandle(handle)
     if (stream !== undefined) {
       stream.volume = volume
