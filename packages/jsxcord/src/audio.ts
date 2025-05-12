@@ -1,5 +1,6 @@
+import type { TransformCallback, TransformOptions } from 'node:stream'
 import { Buffer } from 'node:buffer'
-import { Readable, Transform, TransformCallback, TransformOptions } from 'node:stream'
+import { Readable, Transform } from 'node:stream'
 import { createAudioResource, StreamType } from '@discordjs/voice'
 import FFmpeg from './ffmpeg.js'
 
@@ -128,7 +129,7 @@ export class Mixer extends Readable {
   onTrackEnd(handle: TrackHandle, func: () => void | Promise<void>) {
     this.endListeners[handle] = [
       ...(this.endListeners[handle] ?? []),
-      func
+      func,
     ]
   }
 
@@ -136,11 +137,11 @@ export class Mixer extends Readable {
     if (!this.endListeners[handle]) {
       return
     }
-    
+
     this.endListeners[handle] = this.endListeners[handle].filter(
-      listener => listener !== func
+      listener => listener !== func,
     )
-    
+
     if (this.endListeners[handle].length === 0) {
       delete this.endListeners[handle]
     }
@@ -188,6 +189,7 @@ export class Mixer extends Readable {
 
   /** Sets the track volume */
   setTrackVolume(handle: TrackHandle, volume: number) {
+    console.log('setting volume')
     const stream = this.getStreamFromHandle(handle)
     if (stream !== undefined) {
       stream.volume = volume
@@ -212,16 +214,13 @@ class DataWaitPassThroughStream extends Transform {
 }
 
 /** An individual stream in a `Mixer`, which supports pausing */
-export class MixerStream extends Readable {
+class MixerStream extends Readable {
   private time = performance.now()
   private stream: Readable | null = null
   private isStreamPaused = false
 
   /** The stream's volume */
   public volume = 1
-
-  /** Whether the stream is ready */
-  public isReady = false
 
   private bitrate = 48000
   private channels = 2
@@ -249,7 +248,7 @@ export class MixerStream extends Readable {
     const sendBytes = async () => {
       const bytesToSend = MS_PER_SEND * this.bitrate / 1000 * this.channels * this.bytesPerChannel
 
-      if (this.stream === null) {
+      if (this.stream === null || this.isStreamPaused) {
         this.push(Buffer.from([0, 0]))
         return
       }
@@ -286,24 +285,16 @@ export class MixerStream extends Readable {
   /** Plays a new stream */
   play(stream: Readable) {
     this.stream = stream.pipe(new DataWaitPassThroughStream())
-    this.isReady = false
-    this.stream.on('ready', () => {
-      this.isReady = true
-    })
     this.isStreamPaused = false
   }
 
   /** Pauses the current stream */
   pauseStream() {
-    this.isReady = false
     this.isStreamPaused = true
   }
 
   /** Resumes the current stream */
   resumeStream() {
-    this.stream?.on('ready', () => {
-      this.isReady = true
-    })
     this.isStreamPaused = false
   }
 }
@@ -329,7 +320,7 @@ let totalFfmpegInstances = 0
 /** Converts a file path or stream to a PCM stream */
 export function streamResource(
   resource: string | Buffer | Readable | ReadableStream | NodeJS.ReadableStream,
-  ffmpegOptions?: { inputArgs?: string }
+  ffmpegOptions?: { inputArgs?: string },
 ): Readable {
   totalFfmpegInstances += 1
   if (totalFfmpegInstances > 20) {
@@ -378,8 +369,8 @@ export function streamResource(
     }
   }
 
-  // eslint-disable-next-line no-console
-  ffmpeg.process.stderr?.on('data', data => console.log(data.toString()))
+  // // eslint-disable-next-line no-console
+  // ffmpeg.process.stderr?.on('data', data => console.log(data.toString()))
 
   return ffmpeg
 }

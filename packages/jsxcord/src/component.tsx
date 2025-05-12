@@ -214,10 +214,11 @@ export interface AudioProps {
   onStart?: () => void
   onFinish?: () => void
   paused?: boolean
+  volume?: number
   ffmpeg?: { inputArgs?: string }
 }
 
-export function Audio({ src, onStart, onFinish, paused, ffmpeg }: AudioProps) {
+export function Audio({ src, onStart, onFinish, paused, volume, ffmpeg }: AudioProps) {
   const audioContext = useContext(AudioContext)
   const [track, setTrack] = useState<TrackHandle | null>(null)
 
@@ -228,11 +229,15 @@ export function Audio({ src, onStart, onFinish, paused, ffmpeg }: AudioProps) {
       typeof src === 'string' && !isUrl(src)
         ? path.resolve(src)
         : src,
-      ffmpeg
+      ffmpeg,
     )
 
     const track = audioContext?.mixer.playTrack(stream, paused) ?? null
     setTrack(track)
+
+    if (track) {
+      audioContext?.mixer.setTrackVolume(track, volume ?? 1)
+    }
 
     onStart?.()
     if (track && onFinish) {
@@ -258,6 +263,12 @@ export function Audio({ src, onStart, onFinish, paused, ffmpeg }: AudioProps) {
 
     paused ? audioContext?.mixer.pauseTrack(track) : audioContext?.mixer.resumeTrack(track)
   }, [paused])
+
+  useEffect(() => {
+    if (track) {
+      audioContext?.mixer.setTrackVolume(track, volume ?? 1)
+    }
+  }, [volume])
 
   return <></>
 }
