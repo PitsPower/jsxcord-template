@@ -251,20 +251,22 @@ type ComponentFunc<T extends z.ZodRawShape> = (props: z.infer<z.ZodObject<T>>) =
 export interface ZodCommand<
   T extends z.ZodRawShape,
   HasComponent extends boolean,
-> extends z.ZodObject<T> {
+> {
+  _schema: z.ZodObject<T>
   _componentFunc: HasComponent extends true ? ComponentFunc<T> : null
+
   component: (componentFunc: ComponentFunc<T>) => ZodCommand<z.ZodRawShape, true>
 }
 
-export function command<T extends z.ZodRawShape>(args: T): ZodCommand<T, false> {
-  const result = z.object(args) as ZodCommand<T, false>
+export function command<T extends z.ZodRawShape>(schema: z.ZodObject<T>): ZodCommand<T, false> {
+  return {
+    _schema: schema,
+    _componentFunc: null,
 
-  result._componentFunc = null
-  result.component = (componentFunc) => {
-    const newResult = result as unknown as ZodCommand<z.ZodRawShape, true>
-    newResult._componentFunc = componentFunc as ComponentFunc<z.ZodRawShape>
-    return newResult
+    component(componentFunc) {
+      const newResult = this as unknown as ZodCommand<z.ZodRawShape, true>
+      newResult._componentFunc = componentFunc as ComponentFunc<z.ZodRawShape>
+      return newResult
+    },
   }
-
-  return result
 }

@@ -109,10 +109,10 @@ export function bot(
               InteractionContextType.PrivateChannel,
             )
 
-          if (command instanceof z.ZodObject) {
-            builder.setDescription(command.description ?? 'No description')
+          if (command && typeof command === 'object' && '_schema' in command) {
+            builder.setDescription(command._schema.description ?? 'No description')
 
-            for (const [key, value] of Object.entries(command.shape as object)) {
+            for (const [key, value] of Object.entries(command._schema.shape as object)) {
               buildZodTypeForCommand(builder, key, value)
             }
           }
@@ -152,10 +152,8 @@ export function bot(
       await command(interaction)
       return
     }
-    else if (command instanceof z.ZodObject) {
-      const options = command.parse(getOptionsAsObject(interaction.options))
-      // command = command._componentFunc(options)
-      // const Component = asyncComponent(command._componentFunc)
+    else if (command && typeof command === 'object' && '_schema' in command) {
+      const options = command._schema.parse(getOptionsAsObject(interaction.options))
       const Component = command._componentFunc
       command = <Component {...options} />
     }
