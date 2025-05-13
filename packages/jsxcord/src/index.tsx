@@ -51,7 +51,7 @@ export function bot(
   commands: Record<
     string,
     | ReactNode
-    | ZodCommand<z.ZodRawShape, true>
+    | ZodCommand<z.ZodRawShape, true, false> | ZodCommand<z.ZodRawShape, false, true>
     | ((interaction: ChatInputCommandInteraction) => Promise<void>)
   >,
 ): JsxcordClient {
@@ -115,6 +115,22 @@ export function bot(
             for (const [key, value] of Object.entries(command._schema.shape as object)) {
               buildZodTypeForCommand(builder, key, value)
             }
+
+            if (command._subcommands) {
+              for (const [name, subcommand] of Object.entries(command._subcommands)) {
+                builder.addSubcommand((sub) => {
+                  sub
+                    .setName(name)
+                    .setDescription(subcommand._schema.description ?? 'No description')
+
+                  for (const [key, value] of Object.entries(subcommand._schema.shape as object)) {
+                    buildZodTypeForCommand(sub, key, value)
+                  }
+
+                  return sub
+                })
+              }
+            }
           }
           else {
             builder.setDescription('No description')
@@ -153,9 +169,16 @@ export function bot(
       return
     }
     else if (command && typeof command === 'object' && '_schema' in command) {
-      const options = command._schema.parse(getOptionsAsObject(interaction.options))
-      const Component = command._componentFunc
-      command = <Component {...options} />
+      if (command._componentFunc) {
+        const options = command._schema.parse(getOptionsAsObject(interaction.options))
+        const Component = command._componentFunc
+        command = <Component {...options} />
+      }
+      else if (command._subcommands) {
+        const options = command._subcommands[interaction.options.getSubcommand()]._schema.parse(getOptionsAsObject(interaction.options))
+        const Component = command._subcommands[interaction.options.getSubcommand()]._componentFunc
+        command = <Component {...options} />
+      }
     }
 
     setupRoot(interaction, client, command)

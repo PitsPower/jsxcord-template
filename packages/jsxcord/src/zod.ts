@@ -1,4 +1,4 @@
-import type { ApplicationCommandOptionBase, ChatInputCommandInteraction, ModalActionRowComponentBuilder, ModalBuilder, SlashCommandOptionsOnlyBuilder } from 'discord.js'
+import type { ApplicationCommandOptionBase, ChatInputCommandInteraction, ModalActionRowComponentBuilder, ModalBuilder, SlashCommandOptionsOnlyBuilder, SlashCommandSubcommandBuilder } from 'discord.js'
 import type { ReactNode } from 'react'
 import { ActionRowBuilder, Attachment, GuildMember, TextInputBuilder, TextInputStyle } from 'discord.js'
 import { z } from 'zod'
@@ -130,7 +130,7 @@ export function buildZodTypeForModal(
 
 /** Given the Zod type, calls the relevant slash command builder methods */
 export function buildZodTypeForCommand(
-  builder: SlashCommandOptionsOnlyBuilder,
+  builder: SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandBuilder,
   key: string,
   value: any,
   augmentOptionFuncs: (<T extends ApplicationCommandOptionBase>(option: T) => T)[] = [],
@@ -251,21 +251,39 @@ type ComponentFunc<T extends z.ZodRawShape> = (props: z.infer<z.ZodObject<T>>) =
 export interface ZodCommand<
   T extends z.ZodRawShape,
   HasComponent extends boolean,
+  HasSubcommands extends boolean,
 > {
   _schema: z.ZodObject<T>
   _componentFunc: HasComponent extends true ? ComponentFunc<T> : null
+  _subcommands: HasSubcommands extends true ? Record<string, ZodCommand<z.ZodRawShape, true, false>> : null
 
-  component: (componentFunc: ComponentFunc<T>) => ZodCommand<z.ZodRawShape, true>
+  component: (this: ZodCommand<T, false, false>, componentFunc: ComponentFunc<T>) => ZodCommand<z.ZodRawShape, true, false>
+  sub: (this: ZodCommand<T, false, false>, subcommands: Record<string, ZodCommand<z.ZodRawShape, true, false>>) => ZodCommand<z.ZodRawShape, false, true>
 }
 
-export function command<T extends z.ZodRawShape>(schema: z.ZodObject<T>): ZodCommand<T, false> {
+export function command<T extends z.ZodRawShape>(options?: string | z.ZodObject<T>): ZodCommand<T, false, false> {
+  let schema = z.object({}) as z.ZodObject<T>
+  if (typeof options === 'string') {
+    schema = schema.describe(options)
+  }
+  else if (options) {
+    schema = options
+  }
+
   return {
     _schema: schema,
     _componentFunc: null,
+    _subcommands: null,
 
     component(componentFunc) {
-      const newResult = this as unknown as ZodCommand<z.ZodRawShape, true>
+      const newResult = this as unknown as ZodCommand<z.ZodRawShape, true, false>
       newResult._componentFunc = componentFunc as ComponentFunc<z.ZodRawShape>
+      return newResult
+    },
+
+    sub(subcommands) {
+      const newResult = this as unknown as ZodCommand<z.ZodRawShape, false, true>
+      newResult._subcommands = subcommands
       return newResult
     },
   }
