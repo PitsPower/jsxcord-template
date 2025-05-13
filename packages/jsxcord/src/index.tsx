@@ -25,6 +25,7 @@ export * from './hook.js'
 export * from './modal.js'
 export * from './mutation.js'
 export * from './shared.js'
+export * from './store.js'
 export { createEmoji, createEmojisFromFolder, render }
 
 export interface JsxcordClient<Ready extends boolean = boolean> extends Client<Ready> {
