@@ -1,6 +1,6 @@
 import type { ApplicationCommandOptionBase, ChatInputCommandInteraction, ModalActionRowComponentBuilder, ModalBuilder, SlashCommandOptionsOnlyBuilder } from 'discord.js'
-import { ActionRowBuilder, Attachment, GuildMember, TextInputBuilder, TextInputStyle } from 'discord.js'
 import type { ReactNode } from 'react'
+import { ActionRowBuilder, Attachment, GuildMember, TextInputBuilder, TextInputStyle } from 'discord.js'
 import { z } from 'zod'
 
 export { z }

@@ -103,7 +103,6 @@ export function bot(
         body: Object.entries(commands).map(([name, command]) => {
           const builder = new SlashCommandBuilder()
             .setName(name)
-            .setDescription('No description')
             .setContexts(
               InteractionContextType.Guild,
               InteractionContextType.BotDM,
@@ -111,9 +110,14 @@ export function bot(
             )
 
           if (command instanceof z.ZodObject) {
+            builder.setDescription(command.description ?? 'No description')
+
             for (const [key, value] of Object.entries(command.shape as object)) {
               buildZodTypeForCommand(builder, key, value)
             }
+          }
+          else {
+            builder.setDescription('No description')
           }
 
           return builder.toJSON()
