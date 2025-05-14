@@ -43,7 +43,7 @@ export function useAwait<T>(func: () => Promise<T>, deps?: unknown[]): T {
   useEffect(() => {
     // If no deps, then we never want to cache.
     // If deps, then cache when they haven't changed.
-    if (deps === undefined || !isFirstRender.current) {
+    if (deps === undefined || deps.length > 0 || !isFirstRender.current) {
       delete promiseCache[cacheId][index]
     }
     isFirstRender.current = false
