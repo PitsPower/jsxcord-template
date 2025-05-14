@@ -35,6 +35,8 @@ type JsxcordInstanceType =
   | 'Gallery'
   | 'Image'
   | 'Markdown'
+  | 'Only'
+  | 'OnlyContainer'
   | 'Option'
   | 'Poll'
   | 'Section'
@@ -102,6 +104,7 @@ abstract class BaseInstance<Data> {
 
   constructor(public data: Data) {}
   abstract appendChild(child: InstanceOrText): void
+  abstract appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText): void
   abstract removeChild(child: InstanceOrText): void
   abstract addToOptions(options: InteractionReplyOptions): void
   abstract addToOptionsV2(options: InteractionReplyOptions, container: Container): void
@@ -121,6 +124,7 @@ export class EmptyInstance extends BaseInstance<null> {
   }
 
   appendChild() {}
+  appendChildBefore() {}
   removeChild() {}
   addToOptions() {}
   addToOptionsV2() {}
@@ -145,6 +149,10 @@ export class AccessoryInstance extends BaseInstance<{ instance?: ButtonInstance 
     }
   }
 
+  appendChildBefore(child: InstanceOrText) {
+    this.appendChild(child)
+  }
+
   removeChild(child: InstanceOrText) {
     if (this.data.instance === child) {
       this.data = {
@@ -167,7 +175,9 @@ const buttonStyleMap: Record<string, Exclude<ButtonStyle, ButtonStyle.Link>> = {
   danger: ButtonStyle.Danger,
 }
 
-export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstance | SelectInstance)[] }> {
+export class ActionRowInstance extends BaseInstance<{ components: (
+  ButtonInstance | OnlyInstance | SelectInstance
+)[] }> {
   static type: JsxcordInstanceType = 'ActionRow'
 
   static createInstance() {
@@ -177,21 +187,27 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
   }
 
   appendChild(child: InstanceOrText) {
-    if (child.getType() !== 'Button' && child.getType() !== 'Select') {
-      throw new Error('<ActionRow> can only contain <Button> and <Select> components')
-    }
+    this.data.components.push(enforceType(child, [
+      ButtonInstance,
+      OnlyInstance,
+      SelectInstance,
+    ]))
+  }
 
-    this.data.components.push(enforceType(child, [ButtonInstance, SelectInstance]))
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.components.findIndex(c => c === beforeChild)
+    this.data.components.splice(index, 0, enforceType(child, [
+      ButtonInstance,
+      OnlyInstance,
+      SelectInstance,
+    ]))
   }
 
   removeChild(child: InstanceOrText) {
-    const index = this.data.components.indexOf(enforceType(child, [ButtonInstance, SelectInstance]))
-    if (index !== -1) {
-      this.data.components.splice(index, 1)
-    }
+    this.data.components = this.data.components.filter(c => c !== child)
   }
 
-  addToOptionsGeneric(options: InteractionReplyOptions, v2: boolean) {
+  addToOptionsGeneric(options: InteractionReplyOptions, container: Container | null, v2: boolean) {
     if (this.data.components.length === 0) {
       return
     }
@@ -209,7 +225,7 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
         // Each select goes in its own row
         componentChunks.push([component])
       }
-      else {
+      else if (component instanceof ButtonInstance) {
         // For buttons, add to current chunk
         currentChunk.push(component)
         // If we've reached 5 buttons, push as a chunk and start new
@@ -217,6 +233,9 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
           componentChunks.push([...currentChunk])
           currentChunk = []
         }
+      }
+      else if (container) {
+        component.addToOptionsV2(options, container)
       }
     }
 
@@ -237,11 +256,11 @@ export class ActionRowInstance extends BaseInstance<{ components: (ButtonInstanc
   }
 
   addToOptions(options: InteractionReplyOptions) {
-    this.addToOptionsGeneric(options, false)
+    this.addToOptionsGeneric(options, null, false)
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
-    this.addToOptionsGeneric(options, true)
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
+    this.addToOptionsGeneric(options, container, true)
   }
 }
 
@@ -259,6 +278,11 @@ export class AnswerInstance extends BaseInstance<InternalPollAnswerData> {
 
   appendChild(child: InstanceOrText) {
     this.data.texts.push(enforceType(child, TextInstance))
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.texts.findIndex(c => c === beforeChild)
+    this.data.texts.splice(index, 0, enforceType(child, TextInstance))
   }
 
   removeChild(child: InstanceOrText) {
@@ -314,11 +338,20 @@ export class ButtonInstance extends BaseInstance<
     }
   }
 
-  removeChild(child: InstanceOrText) {
-    const index = this.data.texts.indexOf(enforceType(child, TextInstance))
-    if (index !== -1) {
-      this.data.texts.splice(index, 1)
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const enforcedChild = enforceType(child, [EmojiInstance, TextInstance])
+
+    if (enforcedChild instanceof EmojiInstance) {
+      this.data.emoji = enforcedChild
     }
+    else {
+      const index = this.data.texts.findIndex(c => c === beforeChild)
+      this.data.texts.splice(index, 0, enforceType(child, TextInstance))
+    }
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.texts = this.data.texts.filter(text => text !== child)
   }
 
   toComponentJSON() {
@@ -381,6 +414,11 @@ export class ContainerInstance extends BaseInstance<ContainerProps & { children:
     this.data.children = [...this.data.children, child]
   }
 
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.children.findIndex(c => c === beforeChild)
+    this.data.children.splice(index, 0, child)
+  }
+
   removeChild(child: InstanceOrText) {
     this.data.children = this.data.children.filter(c => c !== child)
   }
@@ -417,6 +455,10 @@ export class DividerInstance extends BaseInstance<{ small?: boolean }> {
   }
 
   appendChild() {
+    throw new Error('<Divider> does not support children.')
+  }
+
+  appendChildBefore() {
     throw new Error('<Divider> does not support children.')
   }
 
@@ -480,10 +522,35 @@ export class EmbedInstance extends BaseInstance<EmbedData> {
     }
 
     if (enforcedChild instanceof FieldInstance) {
+      this.data.fields ??= []
+      this.data.fields.push(enforcedChild)
+    }
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const enforcedChild = enforceType(
+      child,
+      [ImageInstance, EmptyInstance, ThumbnailInstance, FieldInstance],
+    )
+
+    if (enforcedChild instanceof ImageInstance) {
       this.data = {
         ...this.data,
-        fields: [...(this.data.fields ?? []), enforcedChild],
+        image: enforcedChild,
       }
+    }
+
+    if (enforcedChild instanceof ThumbnailInstance) {
+      this.data = {
+        ...this.data,
+        thumbnail: enforcedChild,
+      }
+    }
+
+    if (enforcedChild instanceof FieldInstance) {
+      this.data.fields ??= []
+      const index = this.data.fields.findIndex(c => c === beforeChild)
+      this.data.fields.splice(index, 0, enforcedChild)
     }
   }
 
@@ -578,6 +645,10 @@ export class EmojiInstance extends BaseInstance<{ name: string | null, id: strin
     throw new Error('<Emoji> does not support children.')
   }
 
+  appendChildBefore() {
+    throw new Error('<Emoji> does not support children.')
+  }
+
   removeChild() {
     throw new Error('<Emoji> does not support children.')
   }
@@ -608,6 +679,11 @@ export class EphemeralInstance extends BaseInstance<{ children: InstanceOrText[]
 
   appendChild(child: InstanceOrText) {
     this.data.children.push(child)
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.children.findIndex(c => c === beforeChild)
+    this.data.children.splice(index, 0, child)
   }
 
   removeChild(child: InstanceOrText) {
@@ -654,6 +730,15 @@ export class FieldInstance extends BaseInstance<FieldProps & { children: (Instan
     this.data.children.push(child)
   }
 
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    if (!('asText' in child)) {
+      throw new Error('Cannot append a child to <Field> that cannot be converted to text.')
+    }
+
+    const index = this.data.children.findIndex(c => c === beforeChild)
+    this.data.children.splice(index, 0, child)
+  }
+
   removeChild(child: InstanceOrText) {
     this.data.children = this.data.children.filter(c => c !== child)
   }
@@ -682,6 +767,10 @@ export class FileInstance extends BaseInstance<FileProps> {
   }
 
   appendChild() {
+    throw new Error('<File> does not support children.')
+  }
+
+  appendChildBefore() {
     throw new Error('<File> does not support children.')
   }
 
@@ -715,6 +804,11 @@ export class GalleryInstance extends BaseInstance<{ images: ImageInstance[] }> {
 
   appendChild(child: InstanceOrText) {
     this.data.images.push(enforceType(child, ImageInstance))
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.images.findIndex(c => c === beforeChild)
+    this.data.images.splice(index, 0, enforceType(child, ImageInstance))
   }
 
   removeChild(child: InstanceOrText) {
@@ -783,6 +877,10 @@ export class ImageInstance extends BaseInstance<ImageProps> {
     throw new Error('<Img> does not support children.')
   }
 
+  appendChildBefore() {
+    throw new Error('<Img> does not support children.')
+  }
+
   removeChild() {
     throw new Error('<Img> does not support children.')
   }
@@ -842,6 +940,11 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
     this.data.texts.push(enforceType(child, TextInstance))
   }
 
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.texts.findIndex(c => c === beforeChild)
+    this.data.texts.splice(index, 0, enforceType(child, TextInstance))
+  }
+
   removeChild(child: InstanceOrText) {
     this.data.texts = this.data.texts.filter(text => text !== child)
   }
@@ -862,6 +965,103 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
 
   asText() {
     return this.data.texts.map(text => text.asText()).join('')
+  }
+}
+
+class OnlyException {
+  constructor(public options: InteractionReplyOptions) {}
+}
+
+export class OnlyInstance extends BaseInstance<{ children: InstanceOrText[] }> {
+  static type: JsxcordInstanceType = 'Only'
+
+  static createInstance() {
+    return new OnlyInstance({ children: [] })
+  }
+
+  appendChild(child: InstanceOrText) {
+    this.data.children.push(child)
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.children.findIndex(c => c === beforeChild)
+    this.data.children.splice(index, 0, child)
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.children = this.data.children.filter(c => c !== child)
+  }
+
+  addToOptions(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
+
+  addToOptionsV2(_: InteractionReplyOptions, container: Container) {
+    const options: Writeable<InteractionReplyOptions> = {
+      components: [],
+      flags: MessageFlags.IsComponentsV2,
+    }
+
+    for (const child of this.data.children) {
+      child.addToOptionsV2(options, container)
+    }
+
+    throw new OnlyException(options)
+  }
+}
+
+export class OnlyContainerInstance extends BaseInstance<{ children: InstanceOrText[] }> {
+  static type: JsxcordInstanceType = 'OnlyContainer'
+
+  static createInstance() {
+    return new OnlyContainerInstance({ children: [] })
+  }
+
+  appendChild(child: InstanceOrText) {
+    this.data.children.push(child)
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.children.findIndex(c => c === beforeChild)
+    this.data.children.splice(index, 0, child)
+  }
+
+  removeChild(child: InstanceOrText) {
+    this.data.children = this.data.children.filter(c => c !== child)
+  }
+
+  addToOptions(_options: InteractionReplyOptions) {
+    throw new Error('Not implemented')
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
+    let finalOptions: Writeable<InteractionReplyOptions> = {
+      components: [],
+      flags: MessageFlags.IsComponentsV2,
+    }
+
+    try {
+      for (const child of this.data.children) {
+        child.addToOptionsV2(finalOptions, container)
+      }
+    }
+    catch (err) {
+      if (err instanceof OnlyException) {
+        finalOptions = err.options
+      }
+      else {
+        throw err
+      }
+    }
+
+    options.components = [
+      ...(options.components ?? []),
+      ...(finalOptions.components ?? []),
+    ]
+    options.files = [
+      ...(options.files ?? []),
+      ...(finalOptions.files ?? []),
+    ]
   }
 }
 
@@ -905,6 +1105,18 @@ export class OptionInstance extends BaseInstance<
     }
   }
 
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const enforcedChild = enforceType(child, [EmojiInstance, TextInstance])
+
+    if (enforcedChild instanceof EmojiInstance) {
+      this.data.emoji = enforcedChild
+    }
+    else {
+      const index = this.data.label.findIndex(c => c === beforeChild)
+      this.data.label.splice(index, 0, enforcedChild)
+    }
+  }
+
   removeChild(child: InstanceOrText) {
     this.data.label = this.data.label.filter(text => text !== child)
   }
@@ -939,10 +1151,11 @@ export class PollInstance extends BaseInstance<
   }
 
   appendChild(child: InstanceOrText) {
-    this.data.answers = [
-      ...this.data.answers,
-      enforceType(child, AnswerInstance).data,
-    ]
+    this.data.answers.push(enforceType(child, AnswerInstance).data)
+  }
+
+  appendChildBefore() {
+    throw new Error('Not implemented')
   }
 
   removeChild(child: InstanceOrText) {
@@ -989,6 +1202,18 @@ export class SectionInstance extends BaseInstance<SectionData> {
     }
     else {
       this.data.children.push(enforcedChild)
+    }
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const enforcedChild = enforceType(child, [AccessoryInstance, MarkdownInstance, TextInstance])
+
+    if (enforcedChild instanceof AccessoryInstance) {
+      this.data.accessory = enforcedChild
+    }
+    else {
+      const index = this.data.children.findIndex(c => c === beforeChild)
+      this.data.children.splice(index, 0, enforcedChild)
     }
   }
 
@@ -1065,6 +1290,11 @@ export class SelectInstance extends BaseInstance<
     this.data.options.push(enforceType(child, OptionInstance))
   }
 
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.options.findIndex(c => c === beforeChild)
+    this.data.options.splice(index, 0, enforceType(child, OptionInstance))
+  }
+
   removeChild(child: InstanceOrText) {
     this.data.options = this.data.options.filter(option => option !== child)
   }
@@ -1120,6 +1350,10 @@ export class TextInstance extends BaseInstance<string> {
   static type: JsxcordInstanceType = 'Text'
 
   appendChild() {
+    throw new Error('Attempted to append child to `TextInstance`. This is a bug!')
+  }
+
+  appendChildBefore() {
     throw new Error('Attempted to append child to `TextInstance`. This is a bug!')
   }
 
@@ -1182,6 +1416,10 @@ export class ThumbnailInstance extends BaseInstance<ThumbnailData> {
     }
   }
 
+  appendChildBefore(child: InstanceOrText) {
+    this.appendChild(child)
+  }
+
   removeChild(child: InstanceOrText) {
     const enforcedChild = enforceType(
       child,
@@ -1218,7 +1456,12 @@ export class WhitelistInstance extends BaseInstance<{
   }
 
   appendChild(child: InstanceOrText) {
-    this.data.children = [...this.data.children, child]
+    this.data.children.push(child)
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.children.findIndex(c => c === beforeChild)
+    this.data.children.splice(index, 0, child)
   }
 
   removeChild(child: InstanceOrText) {
@@ -1253,6 +1496,8 @@ export type Instance =
   | GalleryInstance
   | ImageInstance
   | MarkdownInstance
+  | OnlyInstance
+  | OnlyContainerInstance
   | OptionInstance
   | PollInstance
   | SectionInstance

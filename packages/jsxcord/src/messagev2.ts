@@ -20,6 +20,8 @@ import {
   ButtonInstance,
   ContainerInstance,
   EphemeralInstance,
+  OnlyContainerInstance,
+  OnlyInstance,
   SectionInstance,
   SelectInstance,
   WhitelistInstance,
@@ -86,14 +88,12 @@ function findComponentWithId<I extends ButtonInstance | SelectInstance>(
       }
     }
 
-    if (child instanceof ContainerInstance) {
-      const component = findComponentWithId(Class, child.data.children, id, users)
-      if (component !== undefined) {
-        return component
-      }
-    }
-
-    if (child instanceof EphemeralInstance) {
+    if (
+      child instanceof ContainerInstance
+      || child instanceof EphemeralInstance
+      || child instanceof OnlyInstance
+      || child instanceof OnlyContainerInstance
+    ) {
       const component = findComponentWithId(Class, child.data.children, id, users)
       if (component !== undefined) {
         return component

@@ -24,6 +24,8 @@ import {
   GalleryInstance,
   ImageInstance,
   MarkdownInstance,
+  OnlyContainerInstance,
+  OnlyInstance,
   OptionInstance,
   PollInstance,
   SectionInstance,
@@ -145,6 +147,8 @@ export function Img(props: Parameters<typeof RawImage>[0]) {
  * ```
  */
 export const Markdown = createComponent(MarkdownInstance)
+export const Only = createComponent(OnlyInstance)
+export const OnlyContainer = createComponent(OnlyContainerInstance)
 
 const RawOption = createComponent(OptionInstance)
 

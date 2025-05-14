@@ -137,8 +137,11 @@ const reconciler = Reconciler<
     container.children.splice(index, 0, child)
   },
 
-  insertBefore(parentInstance, child) {
-    parentInstance.appendChild(child)
+  insertBefore(parentInstance, child, beforeChild) {
+    if (beforeChild === SuspenseInstance) {
+      throw new Error('Not implemented')
+    }
+    parentInstance.appendChildBefore(child, beforeChild)
   },
 
   removeChildFromContainer(container, child) {
