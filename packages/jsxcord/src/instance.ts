@@ -1058,10 +1058,13 @@ export class OnlyContainerInstance extends BaseInstance<{ children: InstanceOrTe
       ...(options.components ?? []),
       ...(finalOptions.components ?? []),
     ]
-    options.files = [
-      ...(options.files ?? []),
-      ...(finalOptions.files ?? []),
-    ]
+
+    if (options.files) {
+      options.files = [
+        ...options.files,
+        ...(finalOptions.files ?? []),
+      ]
+    }
   }
 }
 
