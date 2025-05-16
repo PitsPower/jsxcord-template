@@ -1059,9 +1059,9 @@ export class OnlyContainerInstance extends BaseInstance<{ children: InstanceOrTe
       ...(finalOptions.components ?? []),
     ]
 
-    if (options.files) {
+    if (options.files || finalOptions.files) {
       options.files = [
-        ...options.files,
+        ...options.files ?? [],
         ...(finalOptions.files ?? []),
       ]
     }
@@ -1080,10 +1080,13 @@ interface OptionProps {
   default?: boolean
   emoji?: string
   value?: string
+  onSelect?: (interaction: StringSelectMenuInteraction) => void | Promise<void>
 }
 
 export class OptionInstance extends BaseInstance<
-  InternalSelectMenuComponentOptionData
+  InternalSelectMenuComponentOptionData & {
+    onSelect?: (interaction: StringSelectMenuInteraction) => void | Promise<void>
+  }
 > {
   static type: JsxcordInstanceType = 'Option'
 
@@ -1094,6 +1097,7 @@ export class OptionInstance extends BaseInstance<
       default: props.default ?? false,
       emoji: props.emoji,
       value: props.value,
+      onSelect: props.onSelect,
     })
   }
 
@@ -1274,7 +1278,7 @@ interface SelectProps {
 }
 
 export class SelectInstance extends BaseInstance<
-  Omit<StringSelectMenuComponentData, 'options'> & SelectProps & { options: OptionInstance[] }
+  Omit<StringSelectMenuComponentData, 'options'> & SelectProps & { options: (OnlyInstance | OptionInstance)[] }
 > {
   static type: JsxcordInstanceType = 'Select'
 
@@ -1290,12 +1294,12 @@ export class SelectInstance extends BaseInstance<
   }
 
   appendChild(child: InstanceOrText) {
-    this.data.options.push(enforceType(child, OptionInstance))
+    this.data.options.push(enforceType(child, [OnlyInstance, OptionInstance]))
   }
 
   appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
     const index = this.data.options.findIndex(c => c === beforeChild)
-    this.data.options.splice(index, 0, enforceType(child, OptionInstance))
+    this.data.options.splice(index, 0, enforceType(child, [OnlyInstance, OptionInstance]))
   }
 
   removeChild(child: InstanceOrText) {
@@ -1305,30 +1309,38 @@ export class SelectInstance extends BaseInstance<
   toComponentJSON() {
     return {
       ...this.data,
-      options: this.data.options.map(option => ({
-        ...option.data,
-        emoji: typeof option.data.emoji === 'string'
-          ? option.data.emoji
-          : `<:${option.data.emoji?.data.name}:${option.data.emoji?.data.id}>`,
-        label: textInstancesToString(option.data.label),
-        value: option.data.value ?? textInstancesToString(option.data.label),
-      })),
+      options: this.data.options
+        .filter((option): option is OptionInstance => option instanceof OptionInstance)
+        .map(option => ({
+          ...option.data,
+          emoji: typeof option.data.emoji === 'string'
+            ? option.data.emoji
+            : `<:${option.data.emoji?.data.name}:${option.data.emoji?.data.id}>`,
+          label: textInstancesToString(option.data.label),
+          value: option.data.value ?? textInstancesToString(option.data.label),
+        })),
     }
   }
 
   toComponentV2JSON() {
     return {
       ...this.data,
-      options: this.data.options.map(option => ({
-        ...option.data,
-        emoji: emojiToApiEmoji(option.data.emoji),
-        label: textInstancesToString(option.data.label),
-        value: option.data.value ?? textInstancesToString(option.data.label),
-      })),
+      options: this.data.options
+        .filter((option): option is OptionInstance => option instanceof OptionInstance)
+        .map(option => ({
+          ...option.data,
+          emoji: emojiToApiEmoji(option.data.emoji),
+          label: textInstancesToString(option.data.label),
+          value: option.data.value ?? textInstancesToString(option.data.label),
+        })),
     }
   }
 
   addToOptions(options: InteractionReplyOptions) {
+    for (const only of this.data.options.filter((o): o is OnlyInstance => o instanceof OnlyInstance)) {
+      only.addToOptions(options)
+    }
+
     options.components = [
       ...(options.components ?? []),
       {
@@ -1338,7 +1350,11 @@ export class SelectInstance extends BaseInstance<
     ]
   }
 
-  addToOptionsV2(options: InteractionReplyOptions) {
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
+    for (const only of this.data.options.filter((o): o is OnlyInstance => o instanceof OnlyInstance)) {
+      only.addToOptionsV2(options, container)
+    }
+
     options.components = [
       ...(options.components ?? []),
       {

@@ -22,6 +22,7 @@ import {
   EphemeralInstance,
   OnlyContainerInstance,
   OnlyInstance,
+  OptionInstance,
   SectionInstance,
   SelectInstance,
   WhitelistInstance,
@@ -107,6 +108,13 @@ function findComponentWithId<I extends ButtonInstance | SelectInstance>(
       }
     }
 
+    if (child instanceof SelectInstance) {
+      const component = findComponentWithId(Class, child.data.options, id, users)
+      if (component !== undefined) {
+        return component
+      }
+    }
+
     if (child instanceof WhitelistInstance) {
       const component = findComponentWithId(Class, child.data.children, id, child.data.users)
       if (component !== undefined) {
@@ -185,16 +193,25 @@ function hydrateComponent(component: Component, message: Message, container: Con
 
           const select = findComponentWithId(SelectInstance, container.children, component.customId)
           const onSelect = select?.instance.data.onSelect
+
+          const onSelectOption = select?.instance.data.options.find(
+            (o): o is OptionInstance => o instanceof OptionInstance && o.data.value === interaction.values[0],
+          )?.data.onSelect
+
           const allowedUsers = select?.users
 
           if (
-            onSelect === undefined
+            (onSelect === undefined && onSelectOption === undefined)
             || (allowedUsers !== undefined && !allowedUsers.includes(interaction.user.id))
           ) {
             return
           }
 
-          await onSelect(interaction.values[0], interaction)
+          await Promise.all([
+            onSelect?.(interaction.values[0], interaction),
+            onSelectOption?.(interaction),
+          ])
+
           try {
             await interaction.deferUpdate()
           }

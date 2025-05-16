@@ -7,9 +7,9 @@ export const DepthContext = createContext<number>(0)
 export const HistoryContext = createContext<UseState<number[]>>(null!)
 
 export function Submenu({
-  button,
+  element,
   children,
-}: PropsWithChildren<{ button: (onClick: () => void) => ReactNode }>) {
+}: PropsWithChildren<{ element: (onClick: () => void) => ReactNode }>) {
   const depth = useContext(DepthContext)
   const [history, setHistory] = useContext(HistoryContext)
 
@@ -23,7 +23,7 @@ export function Submenu({
           </Only>
         </DepthContext.Provider>
       )
-    : button(() => setHistory(history => [...history, menuId]))
+    : element(() => setHistory(history => [...history, menuId]))
 }
 
 export function Menu({ children }: PropsWithChildren) {
