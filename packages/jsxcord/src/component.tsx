@@ -6,7 +6,7 @@ import type { ALL_LANGUAGES } from './languages.js'
 import path from 'node:path'
 import { URL } from 'node:url'
 import { time, TimestampStyles } from 'discord.js'
-import { createContext, createElement, useContext, useEffect, useState } from 'react'
+import { createContext, createElement, useContext, useEffect, useRef, useState } from 'react'
 import { streamResource } from './audio.js'
 import { useInteraction } from './index.js'
 import {
@@ -225,6 +225,19 @@ export interface AudioProps {
 export function Audio({ src, onStart, onFinish, paused, volume, ffmpeg }: AudioProps) {
   const audioContext = useContext(AudioContext)
   const [track, setTrack] = useState<TrackHandle | null>(null)
+
+  const prevOnFinish = useRef(onFinish)
+
+  useEffect(() => {
+    if (track && prevOnFinish.current) {
+      audioContext?.mixer.offTrackEnd(track, prevOnFinish.current)
+    }
+    if (track && onFinish) {
+      audioContext?.mixer.onTrackEnd(track, onFinish)
+    }
+
+    prevOnFinish.current = onFinish
+  }, [onFinish])
 
   useEffect(() => {
     audioContext?.joinVc()
