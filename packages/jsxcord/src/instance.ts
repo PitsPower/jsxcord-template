@@ -1007,7 +1007,7 @@ export class MarkdownInstance extends BaseInstance<{ texts: TextInstance[] }> {
   }
 
   addToOptions(options: InteractionReplyOptions) {
-    options.content += textInstancesToString(this.data.texts)
+    options.content = (options.content ?? '') + textInstancesToString(this.data.texts)
   }
 
   addToOptionsV2(options: InteractionReplyOptions) {
@@ -1439,7 +1439,7 @@ export class TextInstance extends BaseInstance<string> {
 
   addToOptions(options: InteractionReplyOptions) {
     // Escape all Markdown in text
-    options.content += escapeMarkdown(this.data, {
+    options.content = (options.content ?? '') + escapeMarkdown(this.data, {
       bulletedList: true,
       heading: true,
       maskedLink: true,
