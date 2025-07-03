@@ -7,6 +7,7 @@ export interface Container {
   children: InstanceOrText[]
   hydratedIds: string[]
   onChange?: () => Promise<void>
+  shouldUseComponentsV1: boolean
 }
 
 export function create(client: Client): Container {
@@ -15,6 +16,7 @@ export function create(client: Client): Container {
     client,
     children: [],
     hydratedIds: [],
+    shouldUseComponentsV1: false,
   }
 }
 

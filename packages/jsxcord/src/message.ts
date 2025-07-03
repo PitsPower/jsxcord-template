@@ -5,6 +5,7 @@ import { ComponentType } from 'discord.js'
 import {
   ActionRowInstance,
   ButtonInstance,
+  ComponentsV1Instance,
   EmbedInstance,
   EmptyInstance,
   EphemeralInstance,
@@ -18,6 +19,7 @@ import {
 } from './instance.js'
 
 const UNRENDERED_MESSAGE_PARTS = [
+  ComponentsV1Instance,
   EmptyInstance,
   EphemeralInstance,
   WhitelistInstance,

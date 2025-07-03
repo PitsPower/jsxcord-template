@@ -31,7 +31,7 @@ import {
 type Writeable<T> = { -readonly [P in keyof T]: Writeable<T[P]> }
 
 export function createMessageOptions(container: Container): InteractionReplyOptions[] {
-  const currentOptions: Writeable<InteractionReplyOptions> = {
+  const currentOptions: Writeable<InteractionReplyOptions> & { flags: number } = {
     components: [],
     flags: MessageFlags.IsComponentsV2,
   }
@@ -49,6 +49,14 @@ export function createMessageOptions(container: Container): InteractionReplyOpti
     for (const [name, attachment] of Object.entries(container.attachments)) {
       if (!currentOptions.files.find(file => (file as { name: string }).name === name)) {
         currentOptions.files.push({ name, attachment })
+      }
+    }
+  }
+
+  if (container.shouldUseComponentsV1) {
+    for (const options of result) {
+      if (options.flags) {
+        options.flags ^= MessageFlags.IsComponentsV2
       }
     }
   }

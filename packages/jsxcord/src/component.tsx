@@ -14,6 +14,7 @@ import {
   ActionRowInstance,
   AnswerInstance,
   ButtonInstance,
+  ComponentsV1Instance,
   ContainerInstance,
   DividerInstance,
   EmbedInstance,
@@ -74,6 +75,8 @@ export function Button(props: Omit<Parameters<typeof RawButton>[0], 'emoji'> & {
     </RawButton>
   )
 }
+
+export const ComponentsV1 = createComponent(ComponentsV1Instance)
 
 const RawEmbed = createComponent(EmbedInstance)
 

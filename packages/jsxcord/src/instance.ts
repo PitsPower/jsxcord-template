@@ -24,6 +24,7 @@ type JsxcordInstanceType =
   | 'Answer'
   | 'Base'
   | 'Button'
+  | 'ComponentsV1'
   | 'Container'
   | 'Divider'
   | 'Embed'
@@ -393,6 +394,46 @@ export class ButtonInstance extends BaseInstance<
         components: [this.toComponentV2JSON()],
       },
     ]
+  }
+}
+
+export class ComponentsV1Instance extends BaseInstance<{ children: InstanceOrText[] }> {
+  static type: JsxcordInstanceType = 'ComponentsV1'
+
+  static createInstance() {
+    return new ComponentsV1Instance({
+      children: [],
+    })
+  }
+
+  appendChild(child: InstanceOrText) {
+    this.data.children.push(child)
+  }
+
+  appendChildBefore(child: InstanceOrText, beforeChild: InstanceOrText) {
+    const index = this.data.children.findIndex(c => c === beforeChild)
+    this.data.children.splice(index, 0, child)
+  }
+
+  removeChild(child: InstanceOrText) {
+    const index = this.data.children.indexOf(child)
+    if (index !== -1) {
+      this.data.children.splice(index, 1)
+    }
+  }
+
+  addToOptions(options: InteractionReplyOptions) {
+    for (const child of this.data.children) {
+      child.addToOptions(options)
+    }
+  }
+
+  addToOptionsV2(options: InteractionReplyOptions, container: Container) {
+    for (const child of this.data.children) {
+      child.addToOptions(options)
+    }
+
+    container.shouldUseComponentsV1 = true
   }
 }
 
@@ -788,8 +829,24 @@ export class FileInstance extends BaseInstance<FileProps> {
     ]
   }
 
-  addToOptionsV2(_options: InteractionReplyOptions) {
-    throw new Error('Not implemented')
+  addToOptionsV2(options: InteractionReplyOptions) {
+    options.files = [
+      ...(options.files ?? []),
+      {
+        name: this.data.name,
+        attachment: Buffer.from(this.data.content),
+      },
+    ]
+
+    options.components = [
+      ...(options.components ?? []),
+      {
+        type: ComponentType.File,
+        file: {
+          url: `attachment://${this.data.name}`,
+        },
+      },
+    ]
   }
 }
 
@@ -1505,6 +1562,7 @@ export type Instance =
   | ActionRowInstance
   | AnswerInstance
   | ButtonInstance
+  | ComponentsV1Instance
   | DividerInstance
   | EmbedInstance
   | EmojiInstance
@@ -1523,4 +1581,5 @@ export type Instance =
   | SelectInstance
   | ThumbnailInstance
   | WhitelistInstance
+
 export type InstanceOrText = Instance | TextInstance

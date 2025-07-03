@@ -8,6 +8,10 @@ import { createContext, Suspense, useState } from 'react'
 import { Mixer } from './audio.js'
 import * as container from './container.js'
 import { EmojiContext } from './emoji.js'
+import {
+  hydrateMessages as hydrateMessagesV1,
+  isMessageOptionsEmpty as isMessageOptionsEmptyV1,
+} from './message.js'
 import { createMessageOptions, hydrateMessages, isMessageOptionsEmpty } from './messagev2.js'
 import { MutationContext } from './mutation.js'
 import Renderer from './renderer.js'
@@ -62,8 +66,8 @@ function createWrapper(
 
             const player = createAudioPlayer({
               behaviors: {
-                maxMissedFrames: Infinity
-              }
+                maxMissedFrames: Infinity,
+              },
             })
             connection.subscribe(player)
 
@@ -110,10 +114,12 @@ export async function render(
   return new Promise((resolve) => {
     root.onChange = async () => {
       const options = createMessageOptions(root)
-        .filter(options => !isMessageOptionsEmpty(options))
+      const filteredOptions = root.shouldUseComponentsV1
+        ? options.filter(options => !isMessageOptionsEmptyV1(options))
+        : options.filter(options => !isMessageOptionsEmpty(options))
 
-      if (options[0]) {
-        resolve(options[0])
+      if (filteredOptions[0]) {
+        resolve(filteredOptions[0])
       }
     }
 
@@ -149,27 +155,31 @@ export async function setupRoot(
           continue
         }
 
-        if (!isMessageOptionsEmpty(options)) {
+        const isEmpty = root.shouldUseComponentsV1
+          ? isMessageOptionsEmptyV1(options)
+          : isMessageOptionsEmpty(options)
+
+        if (!isEmpty) {
           messageOptions[i] = options
         }
 
-        if (messages[i] !== undefined && !isMessageOptionsEmpty(options)) {
+        if (messages[i] !== undefined && !isEmpty) {
           if (interaction.context === InteractionContextType.Guild) {
             messages[i] = await messages[i].edit({
               ...options,
-              flags: ['32768'],
+              flags: root.shouldUseComponentsV1 ? [] : ['32768'],
             })
           }
           else {
             messages[i] = await interaction.editReply({
               ...options,
               message: messages[i],
-              flags: ['32768'],
+              flags: root.shouldUseComponentsV1 ? [] : ['32768'],
             })
           }
         }
         else if (i === 0) {
-          if (isMessageOptionsEmpty(options)) {
+          if (isEmpty) {
             try {
               await interaction.deferReply()
             }
@@ -179,25 +189,25 @@ export async function setupRoot(
             messages[i] = messages[i] !== undefined
               ? await interaction.editReply({
                 ...options,
-                flags: ['32768'],
+                flags: root.shouldUseComponentsV1 ? [] : ['32768'],
               })
               : await interaction.followUp({
                 ...options,
-                flags: options.flags ?? ['32768'],
+                flags: options.flags ?? (root.shouldUseComponentsV1 ? [] : ['32768']),
               })
           }
           else {
             const response = await interaction.reply({
               ...options,
-              flags: options.flags ?? ['32768'],
+              flags: options.flags ?? (root.shouldUseComponentsV1 ? [] : ['32768']),
             })
             messages[i] = await response.fetch()
           }
         }
-        else if (!isMessageOptionsEmpty(options)) {
+        else if (!isEmpty) {
           messages.push(await interaction.followUp({
             ...options,
-            flags: options.flags ?? ['32768'],
+            flags: options.flags ?? (root.shouldUseComponentsV1 ? [] : ['32768']),
           }))
         }
       }
@@ -205,7 +215,9 @@ export async function setupRoot(
       // Resolve the promise after all messages have been sent
       resolve()
 
-      hydrateMessages(messages, root)
+      root.shouldUseComponentsV1
+        ? hydrateMessagesV1(messages, root)
+        : hydrateMessages(messages, root)
     })
 
     Renderer.render(<Wrapper>{component}</Wrapper>, root)
